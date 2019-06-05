@@ -400,6 +400,7 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
         direction = 0   # SA_FORWARD_DIRECTION
         
         holdTime = 60000
+        #holdTime = 200
         autoZero = 1
         status = SmaractDll.SA_FindReferenceMark_A(ctypes.c_ulong(self.systemIndex), 
                                                     ctypes.c_ulong(channelIndex),
@@ -420,8 +421,8 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
     
     def GotoPositionAbsolute(self, position):
         channelIndex = self.ChannelComboBox.currentIndex() - 1
-        
-        holdTime = 60000   
+        holdTime = 200
+        #holdTime = 60000   
         status = SmaractDll.SA_GotoPositionAbsolute_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(channelIndex), ctypes.c_long(position), ctypes.c_ulong(holdTime))
         return status
     """ 

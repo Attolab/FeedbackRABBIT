@@ -81,9 +81,11 @@ class ScopeReader(QtCore.QObject):
         self.writeScope("""VBS? 'return=app.Acquisition.""" + self.channel +""".Out.Result.Sweeps' """)
         # read the waveform
         waveform = self.scope.GetScaledWaveformWithTimes(self.channel, self.dataPointsNbr, 0)
-        if len(waveform[0]) > 1:
+        #if len(waveform[0]) > 1:
+        if waveform != None:
+            if len(waveform[0]) > 1:
             # emit non-emtpy data only
-            self.dataRecieved.emit(waveform)
+                self.dataRecieved.emit(waveform)
     #######################################################################################        
     def ReadParameters(self):
         #update parameters such as Verscale, Horscale, etc.....
@@ -106,7 +108,7 @@ class ScopeReader(QtCore.QObject):
 #                           "Stop":self.Stop(),
 #                           "Starting":""}
         while self.mode: # An unempty string is considered True in python
-            self.thread().msleep(100)
+            self.thread().msleep(1000)
             if self.mode == "Auto":
                 self.Auto()
             elif self.mode == "Normal":
@@ -124,7 +126,7 @@ class ScopeReader(QtCore.QObject):
             self.ReadWaveform()
             self.ReadParameters()
             # pause loop
-            self.thread().msleep(25)
+            self.thread().msleep(500)
 
     def Normal(self):
         while self.mode == "Normal":
