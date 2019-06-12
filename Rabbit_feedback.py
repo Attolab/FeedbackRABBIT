@@ -13,7 +13,7 @@ import traceback
 from glob import glob
 
 from Scope_f import ScopeWidget, ScopeReader
-from SmarAct_f import StageWidget
+from SmarAct_f import StageWidget, SmarActReader
 from Rabbit_scan import ScanWidget, ScanningLoop
 
 
@@ -40,6 +40,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.stageWidget = StageWidget()
         self.scanWidget = ScanWidget()
         
+        
         self.scopeWidget_feedback = ScopeWidget()
         
         self.mutex = QtCore.QMutex()
@@ -60,6 +61,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         
         self.data_x = []
         self.SB_vector_int = []  #sidebands positions
+        self.BG_vector = []   #background band vector
         
         self.int_SB1 = []
         self.int_SB2 = []
@@ -464,7 +466,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
 
        
        le = len(self.live_time_data)
-       if le<100:
+       if le<50:
            self.live_time_data.append(self.live_time_data[-1]+1)
            self.live_error_data.append(self.x_error_nm)
            self.live_position_data.append(self.stageWidget.PositionNmLCD.value())
@@ -511,20 +513,25 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
            
         ################## feedback #################
         #if self.launch_feedback_btn.isChecked():
-        
+       self.smarActReader = SmarActReader(self.stageWidget)
+       self.smarActReader.newPosition.connect(self.stageWidget.displayNewPosition)
        self.checkFeedback()
-       if self.launch_feedback_btn.isChecked():
-           if self.feedbackStatus == True:
-               self.tab2.setEnabled(False)
-               self.FeedbackStep(data, self.locking_position)
-               self.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK ")
-                
-               
-           else:
-               self.tab2.setEnabled(True)
-               self.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
-               self.launch_feedback_btn.setChecked(False)
+       
+       if self.feedbackStatus == True:
+           
+           self.tab2.setEnabled(False)
+           #self.FeedbackStep(data, self.locking_position)
+           self.FeedbackStepTest()
+           self.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK ")
+           self.launch_feedback_btn.setChecked(True)
             
+           
+       else:
+           self.tab2.setEnabled(True)
+           self.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
+           self.launch_feedback_btn.setChecked(False)
+          
+        
        
       
     def ActivateDeactivateScan(self):
@@ -721,7 +728,8 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             if self.nbr_clicks>=4:
                 self.scanPlotAxis.axvline(x=event.xdata,color='black')
             
-                self.SB_vector.append(event.xdata)
+                #self.SB_vector.append(event.xdata)
+                self.BG_vector.append(event.xdata)
                 self.scanPlotCanvas.draw()
                 self.scope2PlotCanvas.draw()
                 self.nbr_clicks += 1
@@ -740,6 +748,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
                 self.scanPlotAxis.set_title("Select two sidebands in phase quadrature by clicking on the scan \n Also select a band to retrieve the background jitter (in black)", fontsize=8)
         if self.nbr_clicks>6:
             self.SB_vector = []
+            self.BG_vector = []
             self.scanPlotAxis.clear()
             self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat)
             self.scanPlotAxis.set_title("Select two sidebands in phase quadrature by clicking on the scan \n Also select a band to retrieve the background jitter (in black)", fontsize=8)
@@ -815,6 +824,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.fit_SB2 = []
         
         self.SB_vector_int = []
+        self.BG_vector_int = []
         
         self.retrieved_SB1 = []
         self.retrieved_SB2 = []
@@ -822,7 +832,10 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         
         for elt in self.SB_vector:
             self.SB_vector_int.append(int(elt))
-        #self.SB_vector_int.sort()
+        for elt in self.BG_vector:
+            self.BG_vector_int.append(int(elt))
+        self.SB_vector_int.sort()
+        self.BG_vector_int.sort()
         for i in range(3):
             if i==0:  # first sideband
                 int_left = self.SB_vector_int[0]
@@ -838,8 +851,8 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
                     self.int_SB2.append(np.trapz(self.rabbit_mat[i][int_left:int_right])/width)
                     
             if i==2:  #3rd sideband
-                int_left = self.SB_vector_int[4]
-                int_right = self.SB_vector_int[5]
+                int_left = self.BG_vector_int[0]
+                int_right = self.BG_vector_int[1]
                 width = int_right-int_left
                 for i in range(self.n):
                     integral=np.trapz(self.rabbit_mat[i][int_left:int_right])/width
@@ -951,37 +964,37 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         if self.launch_feedback_btn.isChecked():
             if self.scopeWidget.scopeGroupBox.isChecked():
                 if self.stageWidget.ChannelComboBox.currentIndex()>0:
-                    if len(self.SB_vector_int) == 6:
+                    if len(self.SB_vector_int) == 4 and len(self.BG_vector_int)==2:
                             
                         self.feedbackStatus = True
                         
                     else:
                         self.feedbackStatus = False
-                        self.launch_feedback_btn.setChecked(False)
+                        #self.launch_feedback_btn.setChecked(False)
                         print(1)
                         self.errorbands()
                 else:
                     self.feedbackStatus = False
-                    self.launch_feedback_btn.setChecked(False)
+                    #self.launch_feedback_btn.setChecked(False)
                     self.errorstage()
                     
             else:
                 self.feedbackStatus = False
-                self.launch_feedback_btn.setChecked(False)
+                #self.launch_feedback_btn.setChecked(False)
                 print(2)
                 self.errorscope()
         else:
             self.feedbackStatus = False
-            self.launch_feedback_btn.setChecked(False)
-            print(3)
+            #self.launch_feedback_btn.setChecked(False)
+            
+            #print(3)
             
             
             
         
           
-            self.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
-            print("button not checked")
-            print("not moving")
+            #self.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
+            
             
             
             
@@ -1004,10 +1017,10 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             
             
         #V1 and V2: current values of integrated sidebands
-        V1 = np.trapz(data[1][self.SB_vector_int[0]:self.SB_vector_int[1]])/(self.SB_vector_int[1]-self.SB_vector_int[0]) - np.trapz(data[1][self.SB_vector_int[4]:self.SB_vector_int[5]])/(self.SB_vector_int[5]-self.SB_vector_int[4])
+        V1 = np.trapz(data[1][self.SB_vector_int[0]:self.SB_vector_int[1]])/(self.SB_vector_int[1]-self.SB_vector_int[0]) - np.trapz(data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])/(self.BG_vector_int[1]-self.BG_vector_int[0])
         
         
-        V2 = np.trapz(data[1][self.SB_vector_int[2]:self.SB_vector_int[3]])/(self.SB_vector_int[3]-self.SB_vector_int[2]) - np.trapz(data[1][self.SB_vector_int[4]:self.SB_vector_int[5]])/(self.SB_vector_int[5]-self.SB_vector_int[4])
+        V2 = np.trapz(data[1][self.SB_vector_int[2]:self.SB_vector_int[3]])/(self.SB_vector_int[3]-self.SB_vector_int[2]) - np.trapz(data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])/(self.BG_vector_int[1]-self.BG_vector_int[0])
         
         #print(np.arctan2((V1 - self.O1)/self.A1, (V2 - self.O2)/self.A2))
         
@@ -1035,19 +1048,35 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.U[0] = self.U[1]
         
         self.U[1] = self.U[0] + self.Kp*((self.E[2]-self.E[1]) + (self.T/self.Ti)*self.E[2] + (self.Td/self.T)*(self.E[2]-2*self.E[1]+self.E[0]))
-        self.U[1]=10000.
+        #○self.U[1]=10000.
         self.max_move = int(self.max_move_display.text())
         if self.U[1]<self.max_move:
           
         #move Smaract 
         
             self.stageWidget.GotoPositionAbsolute(int(self.stageWidget.PositionNmLCD.value()+self.U[1]))
+            self.stageWidget.PositionNmSpinBox.setValue(int(self.stageWidget.PositionNmLCD.value()+self.U[1]))
             print("platine bouge")
         else:
             self.errormaxmove()
             self.launch_feedback_btn.setChecked(False)
-        
+            self.feedbackStatus = False
             
+            
+    def FeedbackStepTest(self):
+        #self.smarActReader.stop()
+        self.stageWidget.GotoPositionAbsolute(int(self.stageWidget.PositionNmSpinBox.value()+10))
+        print("platine bouge")
+        self.stageWidget.PositionNmSpinBox.setValue(int(self.stageWidget.PositionNmSpinBox.value()+10))
+        self.stageWidget.PositionFsSpinBox.setValue(self.stageWidget.PositionNmSpinBox.value()/300)
+        print(self.stageWidget.PositionFsSpinBox.value())
+        #self.smarActReader.run()
+        #print(self.stageWidget.PositionNmSpinBox.value())
+        #print(self.smarActReader.struct.data2)
+        #self.smarActReader.newPosition.emit(self.smarActReader.struct.data2)
+        #self.stageWidget.PositionNmLCD.display(self.stageWidget.POS)
+        #print("POS = "+str(self.stageWidget.POS))
+   
 ################################ error messages #####################################################
         
     def errorscope(self):
@@ -1065,7 +1094,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     def errorbands(self):
        d = QtWidgets.QDialog()
        
-       b1 = QtWidgets.QLabel("You have to select sidebands before launching active stabilization.", d)
+       b1 = QtWidgets.QLabel("You have to select sidebands and background before launching active stabilization.", d)
       
        d.setFixedWidth(475)
        b1.move(50,50)

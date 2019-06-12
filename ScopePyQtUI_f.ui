@@ -136,6 +136,26 @@
       <string>C4</string>
      </property>
     </item>
+    <item>
+     <property name="text">
+      <string>F1</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>F2</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>F3</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>F4</string>
+     </property>
+    </item>
    </widget>
    
    

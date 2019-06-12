@@ -184,27 +184,29 @@ class SmarActReader(QtCore.QObject):
         # 1) PositionNmLCD
         # 2) ???
         self.isRunning = False
+        self.struct = DataPacketStructure(1,1,1,1,1,1)
 
     def run(self):
         self.isRunning = True
         # initialize packet reading parameters
         status = 9
         timeout = 500
-        struct = DataPacketStructure(1,1,1,1,1,1)
+        self.struct = DataPacketStructure(1,1,1,1,1,1)
         # reading loop : the SmarAct controler sends information by packets
         while self.isRunning:
             # 1) read packet
-            status = SmaractDll.SA_ReceiveNextPacket_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(timeout), ctypes.byref(struct))
+            status = SmaractDll.SA_ReceiveNextPacket_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(timeout), ctypes.byref(self.struct))
             # 2) analyse packet
-            if struct.packetType == 0:
+            if self.struct.packetType == 0:
                 SmaractDll.SA_GetPosition_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(self.channelIndex))
-            elif struct.packetType == 2:
+            elif self.struct.packetType == 2:
 #                print "Channel " + str(struct.channelIndex) + " is at position : " + str(struct.data2) + " nm"
-                self.newPosition.emit(struct.data2)
-            elif struct.packetType == 3:
+                self.newPosition.emit(self.struct.data2)
+                #print(self.struct.data2)
+            elif self.struct.packetType == 3:
                 self.motionEnded.emit()
-            elif struct.packetType == 12:
-                print("Channel " + str(struct.channelIndex) + "'s speed has been set to " + str(struct.data1) + " nm/s")
+            elif self.struct.packetType == 12:
+                print("Channel " + str(self.struct.channelIndex) + "'s speed has been set to " + str(self.struct.data1) + " nm/s")
             # pause loop
             self.thread().msleep(100)
         # 
@@ -225,6 +227,8 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
         QtWidgets.QFrame.__init__(self, parent)
         self.setupUi(self)          #self.frame = uic.loadUi("StagePyQt4UI.ui")
         self.systemIndex = 0
+        
+        self.POS = 0.
 
         self.ControlerComboBox.currentIndexChanged.connect(self.onControlerSelect)
         # speed spinbox keybordtracking set off by default
@@ -420,10 +424,20 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
         return status
     
     def GotoPositionAbsolute(self, position):
+     
+        #get the position during feedback
+        SmaractDll.SA_GetPosition_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(self.smarActReader.channelIndex))
+        self.smarActReader.newPosition.emit(self.smarActReader.struct.data2)
+        
+        
         channelIndex = self.ChannelComboBox.currentIndex() - 1
-        holdTime = 200
-        #holdTime = 60000   
+        #holdTime = 200
+        holdTime = 60000   
         status = SmaractDll.SA_GotoPositionAbsolute_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(channelIndex), ctypes.c_long(position), ctypes.c_ulong(holdTime))
+        
+        
+
+    
         return status
     """ 
     def HoldPositionOnOff(self):
@@ -444,6 +458,8 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
     def displayNewPosition(self, pos):
         self.PositionNmLCD.display(pos)
         self.PositionProgressBar.setValue(pos)
+        #print("smaract pos = "+str(pos))
+        #self.POS = pos
 
 
 

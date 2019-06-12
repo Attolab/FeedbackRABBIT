@@ -53,6 +53,7 @@ class ScopeReader(QtCore.QObject):
         scopeWidget.writeReader.connect(self.writeScope)
 
     def writeScope(self, command):
+        print(command)
         if command[0:3] =="VBS":
             # send command
             self.scope.WriteString(command, 1)
@@ -78,7 +79,7 @@ class ScopeReader(QtCore.QObject):
 
     def ReadWaveform(self):
         # update the sweep value recorded in the progress bar
-        self.writeScope("""VBS? 'return=app.Acquisition.""" + self.channel +""".Out.Result.Sweeps' """)
+        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] +""".Out.Result.Sweeps' """)
         # read the waveform
         waveform = self.scope.GetScaledWaveformWithTimes(self.channel, self.dataPointsNbr, 0)
         #if len(waveform[0]) > 1:
@@ -89,10 +90,12 @@ class ScopeReader(QtCore.QObject):
     #######################################################################################        
     def ReadParameters(self):
         #update parameters such as Verscale, Horscale, etc.....
-        self.writeScope("""VBS? 'return=app.Acquisition.""" + self.channel + """.VerScale' """)
+        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.VerScale' """)
         self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.HorScale'""")
         
-        self.writeScope("""VBS? 'return=app.Acquisition.""" + self.channel + """.Out.Result.VerticalOffset' """)
+        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.VerticalOffset' """)
+        
+    
 
     def Run(self):
 #        print("start main loop")
@@ -126,14 +129,14 @@ class ScopeReader(QtCore.QObject):
             self.ReadWaveform()
             self.ReadParameters()
             # pause loop
-            self.thread().msleep(500)
+            self.thread().msleep(1000)
 
     def Normal(self):
         while self.mode == "Normal":
             self.ReadWaveform()
             self.ReadParameters()
             # pause loop
-            self.thread().msleep(25)
+            self.thread().msleep(1000)
 
     def Single(self):
         # make a single acquisition before switching to the stopped state when the oscilloscope is ready.
@@ -142,12 +145,12 @@ class ScopeReader(QtCore.QObject):
         while self.mode == "Single":
             # pause loop
             self.writeScope("""VBS? 'return=app.Acquisition.TriggerMode' """)
-            self.thread().msleep(100)
+            self.thread().msleep(1000)
 
     def Stop(self):
         # Wait for the user to switch to an other trigger mode
         while self.mode == "Stop":
-            self.thread().msleep(100)
+            self.thread().msleep(1000)
         
     def Off(self):
         self.mode = ""
@@ -176,10 +179,12 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         self.scopeGroupBox.toggled.connect(self.ScopeGroupBoxToggled)
         print("Connect Group Box")
     def UIUpdate(self, updatedData):
+        print(updatedData)
         if not updatedData[1]: # alert the user if the data string is empty
             self.alertMessage.emit(updatedData[0] + " variable not recieved, there may be a communication problem with the scope.")
         else: # update UI only if the data string is not empty
             if updatedData[0] == "VerticalOffset":
+                
                 self.YOffset=float(updatedData[1])
                 
                 self.OffsetLCD.blockSignals(True)
@@ -279,17 +284,17 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         
     def GetYScale(self):
         channel = self.channelComboBox.currentText()
-        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + channel + """.VerScale' """)
+        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + """C"""+channel[1] + """.VerScale' """)
 
     def SetYScale(self, value):
         channel = self.channelComboBox.currentText()
         scale = value/1000.0
-        self.writeReader.emit("""VBS 'app.Acquisition.""" + channel + """.VerScale = """ + str(scale) + """'""")
+        self.writeReader.emit("""VBS 'app.Acquisition.""" + """C"""+channel[1] + """.VerScale = """ + str(scale) + """'""")
         self.GetYScale()
         
     def GetCoupling(self):
         channel = self.channelComboBox.currentText()
-        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + channel + """.Coupling' """)
+        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + """C"""+channel[1] + """.Coupling' """)
  
     def GetSampleMode(self):
         string = """VBS? 'return=app.Acquisition.Horizontal.SampleMode'"""
@@ -311,11 +316,11 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
 
     def GetSweepsNbr(self):
         channel = self.channelComboBox.currentText()
-        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + channel + """.AverageSweeps' """)
+        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + """C"""+channel[1] + """.AverageSweeps' """)
         
     def SetSweepsNbr(self, value):
         channel = self.channelComboBox.currentText()
-        self.writeReader.emit("""VBS 'app.Acquisition.""" + channel + """.AverageSweeps=' """ + str(value))
+        self.writeReader.emit("""VBS 'app.Acquisition.""" + """C"""+channel[1] + """.AverageSweeps=' """ + str(value))
         self.sweepsProgressBar.setMaximum(value)
 
     def GetTriggerMode(self):
