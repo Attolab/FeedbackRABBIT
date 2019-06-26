@@ -53,7 +53,6 @@ class ScopeReader(QtCore.QObject):
         scopeWidget.writeReader.connect(self.writeScope)
 
     def writeScope(self, command):
-        #print(command)
         if command[0:3] =="VBS":
             # send command
             self.scope.WriteString(command, 1)
@@ -79,23 +78,17 @@ class ScopeReader(QtCore.QObject):
 
     def ReadWaveform(self):
         # update the sweep value recorded in the progress bar
-        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] +""".Out.Result.Sweeps' """)
+        self.writeScope("""VBS? 'return=app.Acquisition.""" + self.channel +""".Out.Result.Sweeps' """)
         # read the waveform
         waveform = self.scope.GetScaledWaveformWithTimes(self.channel, self.dataPointsNbr, 0)
-        #if len(waveform[0]) > 1:
-        if waveform != None:
-            if len(waveform[0]) > 1:
+        if len(waveform[0]) > 1:
             # emit non-emtpy data only
-                self.dataRecieved.emit(waveform)
+            self.dataRecieved.emit(waveform)
     #######################################################################################        
     def ReadParameters(self):
         #update parameters such as Verscale, Horscale, etc.....
-        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.VerScale' """)
+        self.writeScope("""VBS? 'return=app.Acquisition.""" + self.channel + """.VerScale' """)
         self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.HorScale'""")
-        
-        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.VerticalOffset' """)
-        
-    
 
     def Run(self):
 #        print("start main loop")
@@ -111,7 +104,7 @@ class ScopeReader(QtCore.QObject):
 #                           "Stop":self.Stop(),
 #                           "Starting":""}
         while self.mode: # An unempty string is considered True in python
-            self.thread().msleep(1000)
+            self.thread().msleep(100)
             if self.mode == "Auto":
                 self.Auto()
             elif self.mode == "Normal":
@@ -129,7 +122,7 @@ class ScopeReader(QtCore.QObject):
             self.ReadWaveform()
             self.ReadParameters()
             # pause loop
-            self.thread().msleep(1000)
+            self.thread().msleep(100)
 
     def Normal(self):
         while self.mode == "Normal":
@@ -160,7 +153,7 @@ class ScopeReader(QtCore.QObject):
 """
 Scope widget class
 """
-qtCreatorFile = "ScopePyQtUI_f.ui"
+qtCreatorFile = "ScopePyQt5UI.ui"
 Ui_ScopeWidget, QtBaseClass = loadUiType(qtCreatorFile)
 class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
     # Create a signal called 'writeReader' to send string to the scope through the scopeReader class
@@ -174,40 +167,78 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         self.scope=win32com.client.Dispatch("LeCroy.ActiveDSOCtrl.1")
         self.YScale=0.01
         self.XScale=5.
-        self.YOffset=0.
         # connect group box to start/stop procedure
         self.scopeGroupBox.toggled.connect(self.ScopeGroupBoxToggled)
-        print("Connect Group Box")
+        
     def UIUpdate(self, updatedData):
-        #print(updatedData)
         if not updatedData[1]: # alert the user if the data string is empty
             self.alertMessage.emit(updatedData[0] + " variable not recieved, there may be a communication problem with the scope.")
         else: # update UI only if the data string is not empty
-            if updatedData[0] == "VerticalOffset":
+            if updatedData[0] == "VerScale":
+                self.YScaleSpinBox.blockSignals(True)
+                self.YScaleSpinBox.setValue(int(1000 * float(updatedData[1])))
+                self.YScaleSpinBox.blockSignals(False)
                 
-                self.YOffset=float(updatedData[1])
-                
-                self.OffsetLCD.blockSignals(True)
-                self.OffsetLCD.display(-float(updatedData[1]))
-                self.OffsetLCD.blockSignals(False)
-                #print("YOffset="+str(self.YOffset))
-                
-            elif updatedData[0] == "VerScale":           
                 self.YScale=float(updatedData[1])
                 #print("Verscale="+str(self.YScale))
-         
+            elif updatedData[0] == "Coupling":
+                index = self.couplingComboBox.findText(updatedData[1])
+                self.couplingComboBox.blockSignals(True)
+                self.couplingComboBox.setCurrentIndex(index)
+                self.couplingComboBox.blockSignals(False)
             elif updatedData[0] == "AverageSweeps":
                 value = int(updatedData[1])
+                self.sweepsSpinBox.blockSignals(True)
+                self.sweepsSpinBox.setValue(value)
+                self.sweepsSpinBox.blockSignals(False)
                 self.sweepsProgressBar.setMaximum(value)
-                
             elif updatedData[0] == "Sweeps":
                 value = int(updatedData[1])
                 value = min(self.sweepsProgressBar.maximum(), value)
                 self.sweepsProgressBar.setValue(value)
             elif updatedData[0] == "HorScale":
+                data = str('%e' % float(updatedData[1])).split('e')
+                data[1] = int(data[1])
+                data[0] = int(float(data[0]) * 10**(data[1]%3))
+                data[1] = int((abs(data[1]) + (data[1]%3))/3)
+                unit = ["s","ms","µs","ns","ps"]
+                string = str(data[0]) + unit[data[1]]
+                self.timeComboBox.blockSignals(True)
+                self.timeComboBox.setCurrentIndex(self.timeComboBox.findText(string))
+                self.timeComboBox.blockSignals(False)
+                
                 self.XScale=float(updatedData[1])
                 #print("Horscale="+str(self.XScale))
-  
+            elif updatedData[0] == "SampleMode":
+                index = self.sampleModeComboBox.findText(updatedData[1])
+                self.sampleModeComboBox.blockSignals(True)
+                self.sampleModeComboBox.setCurrentIndex(index)
+                self.sampleModeComboBox.blockSignals(False)
+            elif  updatedData[0] == "NumSegments":
+                value = int(updatedData[1])
+                self.numberSegmentsSpinBox.blockSignals(True)
+                self.numberSegmentsSpinBox.setValue(value)
+                self.numberSegmentsSpinBox.blockSignals(False)
+            elif updatedData[0] == "TriggerMode":
+                index = self.triggerModeComboBox.findText(updatedData[1])
+                self.triggerModeComboBox.blockSignals(True)
+                self.triggerModeComboBox.setCurrentIndex(index)
+                self.triggerModeComboBox.blockSignals(False)
+            elif updatedData[0] == "Source":
+                index = self.triggerSourceComboBox.findText(updatedData[1])
+                self.triggerSourceComboBox.blockSignals(True)
+                self.triggerSourceComboBox.setCurrentIndex(index)
+                self.triggerSourceComboBox.blockSignals(False)
+            elif updatedData[0] in ["C1Slope","C2Slope","C3Slope","C4Slope","ExtSlope","LineSlope"]:
+                index = self.triggerSlopeComboBox.findText(updatedData[1])
+                self.triggerSlopeComboBox.blockSignals(True)
+                self.triggerSlopeComboBox.setCurrentIndex(index)
+                self.triggerSlopeComboBox.blockSignals(False)
+            elif updatedData[0] in ["C1Coupling","C2Coupling","C3Coupling","C4Coupling","ExtCoupling"]:
+                index = self.triggerCouplingComboBox.findText(updatedData[1])
+                self.triggerCouplingComboBox.blockSignals(True)
+                self.triggerCouplingComboBox.setCurrentIndex(index)
+                self.triggerCouplingComboBox.blockSignals(False)
 
     def ScopeGroupBoxToggled(self):
         if self.scopeGroupBox.isChecked():
@@ -253,8 +284,9 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         self.GetSampleMode()
         self.GetNbrOfSequence()
         self.GetTriggerMode()
-        
-       
+        self.GetTriggerSource()
+        self.GetTriggerSlope()
+        self.GetTriggerCoupling()
 
     def ConnectButtons(self):
         # connect the reader.dataRecieved signal to he scopeWidget.emitData signal
@@ -263,7 +295,18 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         # connect controls to functions
         self.channelComboBox.currentIndexChanged.connect(self.ChannelSelect)
         self.dataPointsNbrSpinBox.valueChanged.connect(self.DataPointsNbrChanged)
-      
+        self.YScaleSpinBox.valueChanged.connect(self.SetYScale)
+        self.sweepsSpinBox.valueChanged.connect(self.SetSweepsNbr)
+        self.couplingComboBox.currentIndexChanged.connect(self.SetCoupling)
+        self.sampleModeComboBox.currentIndexChanged.connect(self.SetSampleMode)
+        self.numberSegmentsSpinBox.valueChanged.connect(self.SetNbrOfSequence)
+        self.timeComboBox.currentIndexChanged.connect(self.SetTScale)
+        self.triggerModeComboBox.currentIndexChanged.connect(self.SetTriggerMode)
+        self.triggerSourceComboBox.currentIndexChanged.connect(self.SetTriggerSource)
+        self.triggerSlopeComboBox.currentIndexChanged.connect(self.SetTriggerSlope)
+        self.triggerCouplingComboBox.currentIndexChanged.connect(self.SetTriggerCoupling)
+        self.clearSweepsButton.pressed.connect(self.ClearSweeps)
+
     def DisconnectButtons(self):
         # disconnect the reader.dataRecieved signal to he scopeWidget.emitData signal
         self.reader.dataRecieved.disconnect()
@@ -271,7 +314,17 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         # disconnect controls from functions
         self.channelComboBox.currentIndexChanged.disconnect()
         self.dataPointsNbrSpinBox.valueChanged.disconnect(self.DataPointsNbrChanged)
-  
+        self.YScaleSpinBox.valueChanged.disconnect()
+        self.sweepsSpinBox.valueChanged.disconnect()
+        self.couplingComboBox.currentIndexChanged.disconnect()
+        self.sampleModeComboBox.currentIndexChanged.disconnect()
+        self.timeComboBox.currentIndexChanged.disconnect()
+        self.triggerModeComboBox.currentIndexChanged.disconnect()
+        self.triggerSourceComboBox.currentIndexChanged.disconnect()
+        self.triggerSlopeComboBox.currentIndexChanged.disconnect()
+        self.triggerCouplingComboBox.currentIndexChanged.disconnect()
+        self.clearSweepsButton.pressed.disconnect()
+
     def ChannelSelect(self):
         self.GetYScale()
         self.GetSweepsNbr()
@@ -284,18 +337,23 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         
     def GetYScale(self):
         channel = self.channelComboBox.currentText()
-        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + """C"""+channel[1] + """.VerScale' """)
+        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + channel + """.VerScale' """)
 
     def SetYScale(self, value):
         channel = self.channelComboBox.currentText()
         scale = value/1000.0
-        self.writeReader.emit("""VBS 'app.Acquisition.""" + """C"""+channel[1] + """.VerScale = """ + str(scale) + """'""")
+        self.writeReader.emit("""VBS 'app.Acquisition.""" + channel + """.VerScale = """ + str(scale) + """'""")
         self.GetYScale()
         
     def GetCoupling(self):
         channel = self.channelComboBox.currentText()
-        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + """C"""+channel[1] + """.Coupling' """)
- 
+        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + channel + """.Coupling' """)
+
+    def SetCoupling(self, value):
+        channel = self.channelComboBox.currentText()
+        coupling = '''"''' + self.couplingComboBox.currentText() + '''"'''
+        self.writeReader.emit("""VBS 'app.Acquisition.""" + channel + """.Coupling = """ + coupling + """'""")
+
     def GetSampleMode(self):
         string = """VBS? 'return=app.Acquisition.Horizontal.SampleMode'"""
         self.writeReader.emit(string)
@@ -310,32 +368,92 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         string = """VBS? 'return=app.Acquisition.Horizontal.NumSegments'"""
         self.writeReader.emit(string)
 
+    def SetNbrOfSequence(self):
+        nbrOfSegments = str(self.numberSegmentsSpinBox.value())
+        nbrOfSegments = '''"''' + nbrOfSegments + '''"'''
+        string = """VBS 'app.Acquisition.Horizontal.NumSegments=""" + nbrOfSegments + """'"""
+        self.writeReader.emit(string)
+
     def GetTScale(self):
         string = """VBS? 'return=app.Acquisition.Horizontal.HorScale'"""
+        self.writeReader.emit(string)
+ 
+    def SetTScale(self, index):
+        scale = self.timeComboBox.currentText()
+        scale = '''"''' + scale + '''"'''
+        string = """VBS 'app.Acquisition.Horizontal.HorScale=""" + scale + """'"""
         self.writeReader.emit(string)
 
     def GetSweepsNbr(self):
         channel = self.channelComboBox.currentText()
-        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + """C"""+channel[1] + """.AverageSweeps' """)
+        self.writeReader.emit("""VBS? 'return=app.Acquisition.""" + channel + """.AverageSweeps' """)
         
     def SetSweepsNbr(self, value):
         channel = self.channelComboBox.currentText()
-        self.writeReader.emit("""VBS 'app.Acquisition.""" + """C"""+channel[1] + """.AverageSweeps=' """ + str(value))
+        self.writeReader.emit("""VBS 'app.Acquisition.""" + channel + """.AverageSweeps=' """ + str(value))
         self.sweepsProgressBar.setMaximum(value)
 
     def GetTriggerMode(self):
         self.writeReader.emit("""VBS? 'return=app.Acquisition.TriggerMode' """)
- 
+        
+    def SetTriggerMode(self, index):
+        mode = self.triggerModeComboBox.currentText()
+        mode = '''"''' + mode + '''"'''
+        self.writeReader.emit("""VBS 'app.Acquisition.TriggerMode=""" + mode + """'""")
+
     def GetTriggerSource(self):
         self.writeReader.emit("""VBS? 'return=app.Acquisition.Trigger.Edge.Source' """)
+        
+    def SetTriggerSource(self, index):
+        channel = self.triggerSourceComboBox.currentText()
+        channel = '''"''' + channel + '''"'''
+        self.writeReader.emit("""VBS 'app.Acquisition.Trigger.Edge.Source=""" + channel + """'""")
+        # recover the slope and coupling settings recorded by the oscilloscope for the selected trigger channel
+        self.GetTriggerSlope()
+        self.GetTriggerCoupling()
+
+    def GetTriggerSlope(self):
+        channel = self.triggerSourceComboBox.currentText()
+        self.writeReader.emit("""VBS? 'return=app.Acquisition.Trigger.""" + channel + """Slope'""")
+        
+    def SetTriggerSlope(self, index):
+        slope = self.triggerSlopeComboBox.currentText()
+        channel = self.triggerSourceComboBox.currentText()
+        slope = '''"''' + slope + '''"'''
+        self.writeReader.emit("""VBS 'app.Acquisition.Trigger.""" + channel + """Slope=""" + slope + """'""")
+        
+    def GetTriggerCoupling(self):
+        channel = self.triggerSourceComboBox.currentText()
+        # The line trigger source has no "trigger coupling" setting, the coupling combobox is therefore disabled in the following conditionnal statement if "Line" is selected
+        if channel == "Line":
+            self.triggerCouplingComboBox.setEnabled(False)
+        else:
+            self.triggerCouplingComboBox.setEnabled(True)
+            self.writeReader.emit("""VBS? 'return=app.Acquisition.Trigger.""" + channel + """Coupling'""")
+        
+    def SetTriggerCoupling(self, index):
+        coupling = self.triggerCouplingComboBox.currentText()
+        channel = self.triggerSourceComboBox.currentText()
+        coupling = '''"''' + coupling + '''"'''
+        self.writeReader.emit("""VBS 'app.Acquisition.Trigger.""" + channel + """Coupling=""" + coupling + """'""")
 
     def ClearSweeps(self):
         self.writeReader.emit("""VBS 'app.Acquisition.ClearSweeps' """)
-    
-    def TransmitData(self, data):
-        if self.sweepsProgressBar.value() >= 1:
-            self.emitData.emit(data)
         
+    def TransmitData(self, data):
+        if self.sweepsProgressBar.value() >= self.sweepsSpinBox.value():
+            if self.sampleModeComboBox.currentIndex() == 2:
+                # the data sequence recieved is tuple containing two tuples of data series stacked 0) times, 1) signal
+                segs = self.numberSegmentsSpinBox.value()
+                ptsPerSeg = int( len(data[0]) / segs)
+                # the following cuts the data to extract a single time sequence
+                newData0 = data[0][:ptsPerSeg*segs]
+                # the following computes the mean value of corresponding data points from the quence
+                newData1 = tuple([sum([data[1][p+s*ptsPerSeg] for s in range(segs)])/segs for p in range(ptsPerSeg)])
+                self.emitData.emit(tuple([newData0,newData1]))
+            else:
+                self.emitData.emit(data)
+
     def quitScope(self):
         if self.scopeGroupBox.isChecked():
             self.scopeGroupBox.setChecked(False)
@@ -360,12 +478,12 @@ if __name__ == '__main__':
             # create the figure and the figure navigation
             self.figure = plt.Figure()
             
-            self.axis = self.figure.add_subplot(111, facecolor='k')
+            self.axis = self.figure.add_subplot(111)
 #            self.axis.axis('auto')
             self.canvas = FigureCanvas(self.figure)             # Canvas Widget that displays the figure
-            self.canvas.setMinimumWidth(700)
-            self.canvas.setMinimumHeight(500)
-            self.trace, = self.axis.plot([0,1],[0,0], color='yellow')
+            self.canvas.setMinimumWidth(250)
+            self.canvas.setMinimumHeight(250)
+            self.trace, = self.axis.plot([0,1],[0,0])
 #            self.toolbar = NavigationToolbar(self.canvas, self) # Navigation widget
             # add the figure and the figure navigation to the figure layout
 #            self.figureLayout.addWidget(self.toolbar)
@@ -409,16 +527,14 @@ if __name__ == '__main__':
         def Trace(self, data):
             scale_y=self.scopeWidget.YScale
             scale_x=self.scopeWidget.XScale
-            offset=self.scopeWidget.YOffset
-          
-            data_y=[]
-            for i in range(len(data[1])):
-                data_y.append(data[1][i]-offset)
-            
+            #print("blee="+str(scale_y))
+            #print("blea="+str(scale_x))
+            self.trace.set_xdata(data[0])
+            self.trace.set_ydata(data[1])
+            #self.axis.set_xlim([min(data[0]), max(data[0])])
+            #self.axis.set_ylim([min(data[1]), max(data[1])])
             self.axis.set_xlim([-5*scale_x, 5*scale_x])
             self.axis.set_ylim([-4*scale_y, 4*scale_y])
-            self.trace.set_xdata(data[0])
-            self.trace.set_ydata(data_y)
             self.axis.grid(True)
             self.axis.set_ylabel("Tension (V)", fontsize=20)
             self.axis.set_xlabel("Time (s)", fontsize=20)
