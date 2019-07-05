@@ -37,11 +37,15 @@ class ScanningLoop(QtCore.QObject):
     requestScopeMemoryClear = QtCore.pyqtSignal()
     setScopeMode = QtCore.pyqtSignal(int)
     requestEmitDataReconnection = QtCore.pyqtSignal()
-    def __init__(self, start, stop, currentPos, nbrOfPoints, folder):
+    def __init__(self, middle, step, currentPos, nbrOfPoints, direction, folder):
         super(ScanningLoop, self).__init__()
         self.nbrOfPoints = nbrOfPoints
-        self.step = int( (stop - start) / self.nbrOfPoints )
-        self.moveTo = start-currentPos
+        self.step = int(step)
+        if direction == "Backward":
+            self.step = -self.step
+        
+        self.start = middle - (self.step*self.nbrOfPoints)/2
+        self.moveTo = self.start-currentPos
         self.folder = folder
         self.data = []
         
@@ -53,11 +57,15 @@ class ScanningLoop(QtCore.QObject):
 
     def Run(self):
         # move to the intial position and wait until initial position is reached
-        self.mutex.lock()
+        #print("begin Run")
+        #self.mutex.lock()
+        #print("after mutex lock")
         self.requestMotion.emit(self.moveTo)
-        self.smarActStopCondition.wait(self.mutex)
-        self.mutex.unlock()
-
+        #print("after request motion")
+        #self.smarActStopCondition.wait(self.mutex)
+        #print("after smaractstopcondition wait")
+        #self.mutex.unlock()
+        #print("after unlock mutex")
         for ii in range(self.nbrOfPoints):
 #            # clear scope memory
 #            print('clear memory')
@@ -66,6 +74,7 @@ class ScanningLoop(QtCore.QObject):
             # freeze this loop while the stage is not at destination :
             print('start motion')
             self.mutex.lock()
+            print("loop")
             self.requestMotion.emit(self.step)
             self.smarActStopCondition.wait(self.mutex)
             self.mutex.unlock()
@@ -141,6 +150,7 @@ class RabbitMainWindow(QtWidgets.QMainWindow):
         self.leftLayout.addWidget(self.stageWidget) # second the delay lins controls
         # and last the scan controls :
         self.scanWidget = ScanWidget()
+        
         self.scanWidget.dataFolderEdit.editingFinished.connect(self.CheckDataFolderExsitance)
         self.leftLayout.addWidget(self.scanWidget)
 
@@ -295,6 +305,7 @@ class RabbitMainWindow(QtWidgets.QMainWindow):
         self.TwoDPlotDraw(data)
 
     def StartStopScan(self, scanOn):
+        
         if scanOn:
             self.CheckDataFolderExsitance()
             # block interaction with the controls
@@ -305,18 +316,20 @@ class RabbitMainWindow(QtWidgets.QMainWindow):
             # Reinitialize the matshow display
             self.TwoDPlotDraw([[0,0],[0,0]])
             # stop the scope trigger and clear the scope memory
-            self.scopeWidget.triggerModeComboBox.setCurrentIndex(3)
+            #self.scopeWidget.triggerModeComboBox.setCurrentIndex(3)
             self.scopeWidget.ClearSweeps()
             # create a scanning loop
-            self.scanningLoop = ScanningLoop(self.scanWidget.startPosSpinBox.value(),
-                                             self.scanWidget.stopPosSpinBox.value(),
+            self.scanningLoop  = ScanningLoop(self.scanWidget.centralPosSpinBox.value(),
+                                             self.scanWidget.stepSizeSpinBox.value(),
                                              self.stageWidget.PositionNmLCD.intValue(),
                                              self.scanWidget.nbrPointsSpinBox.value(),
+                                             self.scanWidget.mvtTypeComboBox.currentText(),
                                              self.scanWidget.dataFolderEdit.text())
             # create and start the scanning thread
             self.scanningThread = QtCore.QThread()
             self.scanningLoop.moveToThread(self.scanningThread)
             self.ConnectScanSignals()
+            print("thread start")
             self.scanningThread.start()
 
         else:
@@ -334,8 +347,9 @@ class RabbitMainWindow(QtWidgets.QMainWindow):
             self.scanWidget.startScanPushButton.blockSignals(True)
             self.scanWidget.startScanPushButton.setChecked(False)
             self.scanWidget.startScanPushButton.blockSignals(False)
-
+            
             self.scanningThread.exit()
+            print("exit scanningThread")
             # wait for the thread exit before going on :
             while self.scanningThread.isRunning():
                 self.thread().msleep(100)
@@ -350,7 +364,7 @@ class RabbitMainWindow(QtWidgets.QMainWindow):
         self.scanningLoop.requestMotion.connect(lambda x : self.stageWidget.PositionNmSpinBox.setValue(self.stageWidget.PositionNmSpinBox.value() + x))
         self.stageWidget.smarActReader.motionEnded.connect(self.scanningLoop.smarActStopCondition.wakeAll)
         # Allow the scanningLoop to set the scope trigger mode
-        self.scanningLoop.setScopeMode.connect(self.scopeWidget.triggerModeComboBox.setCurrentIndex)
+        #self.scanningLoop.setScopeMode.connect(self.scopeWidget.triggerModeComboBox.setCurrentIndex)
         # Allow the scanningLoop to clear the scope memory after motion :
         self.scanningLoop.requestScopeMemoryClear.connect(self.scopeWidget.ClearSweeps)
         # connect the scanning loop Run function to the scanning thread start

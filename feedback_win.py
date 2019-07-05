@@ -12,6 +12,8 @@ from PyQt5 import QtWidgets
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
+
 import numpy as np
 
 class FeedbackTab(QtWidgets.QWidget):
@@ -36,7 +38,7 @@ class FeedbackTab(QtWidgets.QWidget):
         self.U = [0,0]  #two last feedback commands in nm (PID feedback)
         self.E = [0,0,0]  #two last errors in nm (PID feedback)
         
-        self.locking_position = 1000.
+        self.locking_position = 1000
         
         self.max_move = 50  #(nm)
         
@@ -44,7 +46,13 @@ class FeedbackTab(QtWidgets.QWidget):
         
         self.list_error2 = []
         
-        self.storedatafolder = r'C:\Users\Commande\Desktop\python-scripts\feedbackdata'
+        self.P = 0
+        
+        #self.listOfFlippedPoints = []
+        
+        self.Range = [0,0]
+        
+        self.storedatafolder = r'C:\Users\mluttmann\Documents\Python Scripts\data\feedbackdata'
         
         self.x_error_nm = 0.
         
@@ -91,6 +99,22 @@ class FeedbackTab(QtWidgets.QWidget):
         self.time_positionPlotTrace, = self.time_positionPlotAxis.plot([0,1],[0,0],color='yellow')
         
         
+        
+        
+        self.ploterror_btn = QtWidgets.QPushButton("Plot final error signal", self)
+        self.ploterror_btn.clicked.connect(self.shapedErrorPlotDraw)
+        self.ploterror_btn.setMaximumWidth(130)
+        
+        self.shapedErrorPlotFigure = plt.Figure()
+        self.shapedErrorPlotAxis = self.shapedErrorPlotFigure.add_subplot(111)
+        self.shapedErrorPlotCanvas = FigureCanvas(self.shapedErrorPlotFigure)
+        self.shapedErrorPlotCanvas.setMinimumWidth(450)
+        
+        self.shapedErrorPlotAxis.clear()          
+        
+        
+        
+        
         self.Kp_display = QtWidgets.QLineEdit("{:.2f}".format(self.Kp), self)
         self.Kp_display.setMaximumWidth(80)
         self.Ti_display = QtWidgets.QLineEdit("{:.2f}".format(self.Ti), self)
@@ -108,8 +132,9 @@ class FeedbackTab(QtWidgets.QWidget):
         
         self.storedatafolder_display = QtWidgets.QLineEdit("{:.2s}".format(self.storedatafolder), self)
         self.storedatafolder_display.setText(self.storedatafolder)
+        self.storedatafolder_display.setMaximumWidth(200)
         
-        self.launch_feedback_btn = QtWidgets.QPushButton("LAUNCH self \n FEEDBACK", self)
+        self.launch_feedback_btn = QtWidgets.QPushButton("LAUNCH RABBIT \n FEEDBACK", self)
         self.launch_feedback_btn.setMaximumWidth(200)
         self.launch_feedback_btn.setCheckable(True)
         self.launch_feedback_btn.setIcon(QIcon('lapin.png'))
@@ -156,14 +181,24 @@ class FeedbackTab(QtWidgets.QWidget):
         displayLayout.addWidget(self.time_errorPlotCanvas)
         displayLayout.addWidget(self.time_positionPlotCanvas)
         
+        
+        
+        nav = NavigationToolbar2QT(self.shapedErrorPlotCanvas, self)
+        nav.setStyleSheet("QToolBar { border: 0px }")
+        
+        
+        
         interactLayout = QtWidgets.QVBoxLayout()
+        interactLayout.addWidget(self.ploterror_btn)
+        interactLayout.addWidget(self.shapedErrorPlotCanvas)
+        interactLayout.addWidget(nav)
         interactLayout.addWidget(ServoGroupBox)
         interactLayout.addWidget(lockingWidget)
         interactLayout.addWidget(maxWidget)
         interactLayout.addWidget(self.storedatafolder_display)
         interactLayout.addWidget(self.launch_feedback_btn)
         interactLayout.addStretch(10)
-        interactLayout.setContentsMargins(100,300,100,300)
+        #interactLayout.setContentsMargins(100,300,100,300)
         interactLayout.setSpacing(10)
         
         
@@ -221,7 +256,7 @@ class FeedbackTab(QtWidgets.QWidget):
         self.stageWidget.GotoPositionAbsolute(self.stageWidget.PositionNmSpinBox.value()+self.stageWidget.StepSpinBox.value())
         
      
-    def FeedbackStep(self, data, wanted_delay_position):
+    def FeedbackStep(self, data, locking_position):
         #data: signal from the scope
         #data[0]: list of ToF steps
         #data[1]: list of tensions value (V)
@@ -240,18 +275,19 @@ class FeedbackTab(QtWidgets.QWidget):
         
         V2 = np.trapz(data[1][self.SB_vector_int[2]:self.SB_vector_int[3]])/(self.SB_vector_int[3]-self.SB_vector_int[2]) - np.trapz(data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])/(self.BG_vector_int[1]-self.BG_vector_int[0])
       
-        #calculation of delay with sidebands
+        #calculation of phase shift with sidebands
         Dphi = np.arctan2((V1 - self.O1)/self.A1, (V2 - self.O2)/self.A2)
     
-        current_time_delay = Dphi/self.omega  #time delay in s
-
-        
-        x_position = self.c_m_s*current_time_delay #postion shift in meters
-        x_position_nm = x_position*10**9
-        
-        self.x_error_nm = wanted_delay_position - x_position_nm
-        
     
+        localErrorSignal = self.list_error2[self.Range[0]:self.Range[1]+1]  # we are only interested in this small part of the error signal around self.locking_position
+        localPos = self.tab2.data_x_nm[self.Range[0]:self.Range[1]+1]
+        
+        localIndexDphi = self.FindX(Dphi, localErrorSignal)
+        
+        currentPos = localPos[localIndexDphi]
+        
+        self.x_error_nm = currentPos - locking_position
+       
         for i in range(2):
             self.E[i] = self.E[i+1]
         self.E[2] = self.x_error_nm
@@ -261,12 +297,13 @@ class FeedbackTab(QtWidgets.QWidget):
         self.U[1] = self.U[0] + self.Kp*((self.E[2]-self.E[1]) + (self.T/self.Ti)*self.E[2] + (self.Td/self.T)*(self.E[2]-2*self.E[1]+self.E[0]))
        
         self.max_move = int(self.max_move_display.text())
-        if self.U[1]<self.max_move:
+        if self.U[1] < self.max_move:
           
         #move Smaract 
         
-            self.stageWidget.GotoPositionAbsolute(int(self.stageWidget.PositionNmLCD.value()+self.U[1]))
-            self.stageWidget.PositionNmSpinBox.setValue(int(self.stageWidget.PositionNmLCD.value()+self.U[1]))
+            #self.stageWidget.GotoPositionAbsolute(int(self.stageWidget.PositionNmLCD.value() - self.U[1]))
+            self.stageWidget.PositionNmSpinBox.setValue(int(self.stageWidget.PositionNmLCD.value() - self.U[1]))
+            
             print("Translation stage is moving")
         else:
             self.errormaxmove()
@@ -280,7 +317,7 @@ class FeedbackTab(QtWidgets.QWidget):
             
     def FeedbackStepTest(self):
         
-        self.stageWidget.GotoPositionAbsolute(int(self.stageWidget.PositionNmSpinBox.value()+10))
+        #self.stageWidget.GotoPositionAbsolute(int(self.stageWidget.PositionNmSpinBox.value()+10))
         print("Translation stage is moving")
         self.stageWidget.PositionNmSpinBox.setValue(int(self.stageWidget.PositionNmSpinBox.value()+10))
         self.stageWidget.PositionFsSpinBox.setValue(self.stageWidget.PositionNmSpinBox.value()/300)
@@ -291,38 +328,90 @@ class FeedbackTab(QtWidgets.QWidget):
         
 #### Construction of local error signal     
         
-    def FindX(self, locking_position):
+    def FindX(self, value, List):
         index = 0
-        self.scan_step = float(self.tab2.step_display.text())
-        Min = self.scan_step
-        for i in range(len(self.tab2.data_x_nm)):
-            diff = abs(self.tab2.data_x_nm[i] - locking_position)
+        
+        Min = abs(List[0] - List[-1])
+        for i in range(len(List)):
+            diff = abs(List[i] - value)
             if diff<Min:
                 Min =  diff
                 index = i
+        print("Closest array position = " +str(List[index]))
         return index
-    
+
+   
     
     def shapeErrorSignal(self, locking_position):
+        #self.listOfFlippedPoints = []
         print(locking_position)
-        i = self.FindX(float(locking_position))
-        offset = self.tab2.list_error[i]
+        self.P = self.FindX(float(locking_position), self.tab2.data_x_nm)
+        offset = self.tab2.list_error_wrapped[self.P]
         self.list_error2 = []
-        for elt in self.tab2.list_error:
+        for elt in self.tab2.list_error_wrapped:
             self.list_error2.append(elt-offset)
         for i in range(len(self.list_error2)):
             if self.list_error2[i] < -np.pi:
+                #self.listOfFlippedPoints.append(i)
                 self.list_error2[i]+=2*np.pi
             if self.list_error2[i] > np.pi:
+                #self.listOfFlippedPoints.append(i)
                 self.list_error2[i]-=2*np.pi
-        
+        '''
         plt.plot(self.tab2.data_x_nm,self.list_error2)
         plt.grid()
         plt.show()
+        '''
+        
+        
+    def shapedErrorPlotDraw(self):
+        self.shapedErrorPlotAxis.clear()
+        self.shapeErrorSignal(self.locking_position_display.text())
+        self.findRange()
+        self.shapedErrorPlotAxis.axvline(x = self.tab2.data_x_nm[self.P], color = 'red')
+        print("Range = "+str(self.Range))
+        self.shapedErrorPlotAxis.axvline(x = self.tab2.data_x_nm[self.Range[0]], linestyle='--', color =  'black')
+        self.shapedErrorPlotAxis.axvline(x = self.tab2.data_x_nm[self.Range[1]], linestyle='--', color = 'black')
+        self.shapedErrorPlotAxis.plot(self.tab2.data_x_nm, self.list_error2)
+        self.shapedErrorPlotAxis.grid(True)
+        self.shapedErrorPlotAxis.set_ylabel("Error signal", fontsize = 10)
+        self.shapedErrorPlotAxis.set_xlabel("Delay (nm)", fontsize = 10)
+        self.shapedErrorPlotCanvas.draw()
             
     
-
+    
+    def findRange(self): 
         
+        print("P = "+str(self.P))
+        
+        '''
+        #Min = phase_shift
+        k = self.FindX(self.P, self.listOfFlippedPoints)
+        print("k = "+str(k))
+        print("listOfFlippedPoints = "+str(self.listOfFlippedPoints))
+        closest_flipped_point_index = self.listOfFlippedPoints[k]
+        if closest_flipped_point_index < self.P:
+            self.Range = [closest_flipped_point_index, self.listOfFlippedPoints[k+1]]
+        else:
+            self.Range = [self.listOfFlippedPoints[k-1], closest_flipped_point_index]
+        '''
+        max_var_error = 2. # >2 rad variation is taken into account as a tooth
+        loop = True
+        i = self.P
+        while loop == True: # first loop: looks forward for sudden variations
+            if abs(self.list_error2[i] - self.list_error2[i+1]) > max_var_error:
+                self.Range[1] = i
+                print
+                loop = False
+            i += 1
+        i = self.P
+        loop = True
+        while loop == True: # second loop: looks backward for sudden variations
+            if abs(self.list_error2[i] - self.list_error2[i-1]) > max_var_error:
+                self.Range[0] = i
+                loop = False
+            i -= 1
+            
    
 ################################ error messages #####################################################
         

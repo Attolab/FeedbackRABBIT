@@ -429,7 +429,7 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
         SmaractDll.SA_GetPosition_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(self.smarActReader.channelIndex))
         self.smarActReader.newPosition.emit(self.smarActReader.struct.data2)
         
-        
+        self.PositionFsSpinBox.setValue(position/300.)
         channelIndex = self.ChannelComboBox.currentIndex() - 1
         #holdTime = 200
         holdTime = 60000   

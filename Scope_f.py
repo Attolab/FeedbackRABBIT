@@ -101,6 +101,7 @@ class ScopeReader(QtCore.QObject):
 #        print("start main loop")
         # start scope procedure
         self.scope.MakeConnection("USBTMC:USB0::0x05ff::0x1023::2816N63086::INSTR")
+        print("after make connection")
 #        self.scope.DeviceClear(True)     How should I clear the scope communication channel without restarting it????
         remote = self.scope.SetRemoteLocal(1)
         # Wating for the completion of "ReadScopeState"
@@ -182,6 +183,8 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         #print(updatedData)
         if not updatedData[1]: # alert the user if the data string is empty
             self.alertMessage.emit(updatedData[0] + " variable not recieved, there may be a communication problem with the scope.")
+            print("updatedata = ")
+            print(updatedData[1])
         else: # update UI only if the data string is not empty
             if updatedData[0] == "VerticalOffset":
                 
@@ -221,6 +224,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
             self.readerThread = QtCore.QThread()
             self.reader.moveToThread(self.readerThread)
             self.readerThread.started.connect(self.reader.Run)
+            print("after Run")
             # start the reader thread...
             self.readerThread.start()
             # ... and wait for it to be running (tests indicate that this safety is useless!)

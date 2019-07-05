@@ -64,6 +64,7 @@ class SidebandsTab(QtWidgets.QWidget):
         
         self.data_x_nm=[]  #list of delay values converted in nm
         self.list_error = []   #error signal extracted from the parameters above (O1, O2, A1, A2, etc.) 
+        self.list_error_wrapped = [] #error signal without the unwrap operation
         
         self.O1 = 0.  #offset of the fitted sideband
         self.O2 = 0.  #amplitude of the fitted  sideband
@@ -441,7 +442,8 @@ class SidebandsTab(QtWidgets.QWidget):
         
         self.errorPlotAxis.clear()
         self.list_error = []
-        '''
+        self.list_error_wrapped = []
+        
         list_error_fit = []
         self.list_error = np.unwrap(np.arctan2(
             (self.retrieved_SB1 - self.O1)/self.A1,
@@ -451,18 +453,19 @@ class SidebandsTab(QtWidgets.QWidget):
             (self.fit_SB1 - self.O1)/self.A1,
             (self.fit_SB2 - self.O2)/self.A2
         ))
-        '''
         
-        list_error_fit = []
-        self.list_error = np.arctan2(
+        
+        #list_error_fit = []
+        self.list_error_wrapped = np.arctan2(
             (self.retrieved_SB1 - self.O1)/self.A1,
             (self.retrieved_SB2 - self.O2)/self.A2
         )
+        '''
         list_error_fit = np.arctan2(
             (self.fit_SB1 - self.O1)/self.A1,
             (self.fit_SB2 - self.O2)/self.A2
         )
-        
+        '''
         param_lin, cov = optimize.curve_fit(self.lin_fit, self.data_x, self.list_error)
         
         self.data_x_nm=[]

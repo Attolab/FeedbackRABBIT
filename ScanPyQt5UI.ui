@@ -68,9 +68,9 @@
      <item>
       <layout class="QGridLayout" name="gridLayout">
        <item row="1" column="0">
-        <widget class="QLabel" name="stopPosLabel">
+        <widget class="QLabel" name="stepSizeLabel">
          <property name="text">
-          <string>Stop Pos :</string>
+          <string>Step size :</string>
          </property>
         </widget>
        </item>
@@ -82,15 +82,21 @@
         </widget>
        </item>
        <item row="0" column="0">
-        <widget class="QLabel" name="startPosLabel">
+        <widget class="QLabel" name="centralPosLabel">
          <property name="text">
-          <string>Start Pos :</string>
+          <string>Central Pos :</string>
          </property>
         </widget>
        </item>
-       <item row="0" column="3">
+
+       <item row="1" column="3">
         <widget class="QComboBox" name="mvtTypeComboBox"/>
+     	 <property name="text">
+      	  <string>Forward</string>
+         </property>
+        
        </item>
+       
        <item row="2" column="1">
         <widget class="QSpinBox" name="nbrPointsSpinBox">
          <property name="keyboardTracking">
@@ -105,7 +111,7 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QSpinBox" name="startPosSpinBox">
+        <widget class="QSpinBox" name="centralPosSpinBox">
          <property name="keyboardTracking">
           <bool>false</bool>
          </property>
@@ -117,15 +123,9 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="2">
-        <widget class="QLabel" name="averageNbrLabel">
-         <property name="text">
-          <string>Average Nbr :</string>
-         </property>
-        </widget>
-       </item>
+       
        <item row="1" column="1">
-        <widget class="QSpinBox" name="stopPosSpinBox">
+        <widget class="QSpinBox" name="stepSizeSpinBox">
          <property name="keyboardTracking">
           <bool>false</bool>
          </property>
@@ -136,27 +136,12 @@
           <number>6000000</number>
          </property>
          <property name="value">
-          <number>110</number>
+          <number>20</number>
          </property>
         </widget>
        </item>
-       <item row="1" column="3">
-        <widget class="QSpinBox" name="averageNbrSpinBox">
-         <property name="keyboardTracking">
-          <bool>false</bool>
-         </property>
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>1000</number>
-         </property>
-         <property name="value">
-          <number>1</number>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="2">
+       
+       <item row="1" column="2">
         <widget class="QLabel" name="mvtTypeLabel">
          <property name="text">
           <string>Mvt Type :</string>
@@ -168,7 +153,7 @@
      <item>
       <widget class="QLineEdit" name="dataFolderEdit">
        <property name="text">
-        <string>C:\Users\Commande\Desktop\python-scripts\data\</string>
+        <string>C:\Users\mluttmann\Documents\Python Scripts\data\monscan</string>
        </property>
       </widget>
      </item>
@@ -219,12 +204,12 @@
   </widget>
  </widget>
  <tabstops>
-  <tabstop>startPosSpinBox</tabstop>
-  <tabstop>stopPosSpinBox</tabstop>
+  <tabstop>centralPosSpinBox</tabstop>
+  <tabstop>stepSizeSpinBox</tabstop>
   <tabstop>nbrPointsSpinBox</tabstop>
   <tabstop>dataFolderEdit</tabstop>
   <tabstop>mvtTypeComboBox</tabstop>
-  <tabstop>averageNbrSpinBox</tabstop>
+ 
   <tabstop>startScanPushButton</tabstop>
  </tabstops>
  <resources/>

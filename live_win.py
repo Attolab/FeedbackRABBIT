@@ -29,6 +29,9 @@ class LiveTab(QtWidgets.QWidget):
         self.stageWidget = StageWidget()
         self.scanWidget = ScanWidget()
         
+        self.scanWidget.mvtTypeComboBox.addItem("Forward") #impossible to put this command in the scan ui file, I don't know why
+        self.scanWidget.mvtTypeComboBox.addItem("Backward")
+        
    
         
         self.scopePlotFigure = plt.Figure()
