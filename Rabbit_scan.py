@@ -57,15 +57,15 @@ class ScanningLoop(QtCore.QObject):
 
     def Run(self):
         # move to the intial position and wait until initial position is reached
-        #print("begin Run")
-        #self.mutex.lock()
-        #print("after mutex lock")
+        print("begin Run")
+        self.mutex.lock()
+        print("after mutex lock")
         self.requestMotion.emit(self.moveTo)
-        #print("after request motion")
-        #self.smarActStopCondition.wait(self.mutex)
-        #print("after smaractstopcondition wait")
-        #self.mutex.unlock()
-        #print("after unlock mutex")
+        print("after request motion")
+        self.smarActStopCondition.wait(self.mutex)
+        print("after smaractstopcondition wait")
+        self.mutex.unlock()
+        print("after unlock mutex")
         for ii in range(self.nbrOfPoints):
 #            # clear scope memory
 #            print('clear memory')
@@ -77,6 +77,7 @@ class ScanningLoop(QtCore.QObject):
             print("loop")
             self.requestMotion.emit(self.step)
             self.smarActStopCondition.wait(self.mutex)
+            print("after .wait in scan")
             self.mutex.unlock()
             
             # allow data emition fro mthe scopeWidget

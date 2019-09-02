@@ -18,7 +18,7 @@ from glob import glob
 from PyQt5 import QtWidgets
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
 import numpy as np
 from scipy import optimize
@@ -30,29 +30,33 @@ from scipy import optimize
 class SidebandsTab(QtWidgets.QWidget):
     def __init__(self,  parent=None):
         """
-        tab
+        tab 2: Sidebands Tab. Allows the user to load the RABBIT scan, select sidebands. The program integrate them and fit them, then displays the error signal.
         """
         super(SidebandsTab, self).__init__(parent=None)
+        
+        
+        ########################### global variables ###########################################
         
         self.omega = 2.35*10**(15)  #IR laser pulsation in rad/s
         self.c_m_s = 3*10**8  #speed of light
         self.scan_step = 20.  #scan step in nm
         self.rabbit_mat = None  #this array will contain the RABBIT scan
+        self.shaped_rabbit_mat = None #will containe normalized and offsetted scan
         
-        self.n = 1
-        self.SB_vector = []
-        self.nbr_clicks = 0
-        
-        self.scan_step = 20.
+        self.n = 1 # number of steps in the scan
+        self.SB_vector = [] # vector containing the
+        self.nbr_clicks = 0  #increments +1 each time the user cliks on the scan
+
         
         self.data_x = []  #list of delay values in number of steps     
         self.SB_vector_int = []  #sidebands positions on the scan array (integers, in scan steps)
+        self.supSB_vector_int = []  #additional sidebands positions on the scan array
         self.BG_vector = []   #background band vectorthat will be substracted from sidebands
         
-        self.int_SB1 = []  #intergrated sideband 
+        self.int_SB1 = []  #list of values corresponding to the sideband integrated over its width
         self.int_SB2 = []
         
-        self.int_offset = []  #offset obtained by intergrating the background band
+        #self.int_offset = []  #offset obtained by intergrating the background band
         
         self.retrieved_SB1 = []  #sideband with background removed
         self.retrieved_SB2 = []
@@ -67,10 +71,19 @@ class SidebandsTab(QtWidgets.QWidget):
         self.list_error_wrapped = [] #error signal without the unwrap operation
         
         self.O1 = 0.  #offset of the fitted sideband
-        self.O2 = 0.  #amplitude of the fitted  sideband
-        self.A1 = 0.
+        self.O2 = 0.  
+        self.A1 = 0.  #amplitude of the fitted  sideband
         self.A2 = 0.
+        self.phi1 = 0.  #phase of the fitted  sideband
+        self.phi2 = 0.
         self.dphi = 0.  #phase shift between the two fitted sidebands (we want it to be close to pi/2)
+        
+        
+        self.param_lin = []   # parameters of the linear fit of the error signal
+        
+        
+        
+        ########################################### interface ##########################################################
         
 
         self.scanPlotLayout = QtWidgets.QVBoxLayout()
@@ -83,8 +96,11 @@ class SidebandsTab(QtWidgets.QWidget):
         self.scanPlotTrace = self.scanPlotAxis.matshow([[0,0],[0,0]])
         self.scanPlotLayout.addWidget(self.scanPlotCanvas)
         
+        #nav = NavigationToolbar2QT(self.scanPlotCanvas, self)
+        #nav.setStyleSheet("QToolBar { border: 0px }")
+        
         self.step_display = QtWidgets.QLineEdit("{:.2f}".format(self.scan_step), self)
-        self.step_display.setMaximumWidth(80)
+        self.step_display.setMaximumWidth(30)
         self.step_display.setText("20")
         
         
@@ -96,33 +112,36 @@ class SidebandsTab(QtWidgets.QWidget):
         
         
         
-        self.SBPlotLayout = QtWidgets.QVBoxLayout()
+        
         self.SBPlotFigure = plt.Figure()
         self.SBPlotAxis = self.SBPlotFigure.add_subplot(111)
         self.SBPlotCanvas = FigureCanvas(self.SBPlotFigure)             
-        self.SBPlotLayout.addWidget(self.SBPlotCanvas)
         self.SBPlotAxis.clear()
         
         
-        self.horPlotLayout = QtWidgets.QVBoxLayout()
         self.horPlotFigure = plt.Figure()
         self.horPlotAxis = self.horPlotFigure.add_subplot(111)
         self.horPlotCanvas = FigureCanvas(self.horPlotFigure)             
-        self.horPlotLayout.addWidget(self.horPlotCanvas)
         self.horPlotAxis.clear()
         
         
-        self.errorPlotLayout = QtWidgets.QVBoxLayout()
         self.errorPlotFigure = plt.Figure()
         self.errorPlotAxis = self.errorPlotFigure.add_subplot(111)
         self.errorPlotCanvas = FigureCanvas(self.errorPlotFigure)             
-        self.errorPlotLayout.addWidget(self.errorPlotCanvas)
         self.errorPlotAxis.clear()
         
         
-        self.importdata_btn = QtWidgets.QPushButton("Load self scan", self)
+        self.importdata_btn = QtWidgets.QPushButton("Load RABBIT scan", self)
         self.importdata_btn.clicked.connect(self.import_scan)
         self.importdata_btn.setMaximumWidth(130)
+        
+        self.SBCheckBox = QtWidgets.QCheckBox("Select 2 SB in phase quad.")
+        self.supSBCheckBox = QtWidgets.QCheckBox("Select additional SB")
+        self.BGCheckBox = QtWidgets.QCheckBox("Select background band")
+        
+        self.SBCheckBox.stateChanged.connect(lambda: self.exclusive(self.SBCheckBox, self.supSBCheckBox, self.BGCheckBox))
+        self.supSBCheckBox.stateChanged.connect(lambda: self.exclusive(self.supSBCheckBox, self.SBCheckBox, self.BGCheckBox))
+        self.BGCheckBox.stateChanged.connect(lambda: self.exclusive(self.BGCheckBox, self.SBCheckBox, self.supSBCheckBox))
         
         
         self.SB_plot_btn = QtWidgets.QPushButton("Plot sidebands", self)
@@ -154,6 +173,9 @@ class SidebandsTab(QtWidgets.QWidget):
         small_layout.addWidget(self.importdata_btn)
         small_layout.addWidget(QtWidgets.QLabel("Scan step (nm)"))
         small_layout.addWidget(self.step_display)
+        small_layout.addWidget(self.SBCheckBox)
+        small_layout.addWidget(self.supSBCheckBox)
+        small_layout.addWidget(self.BGCheckBox)
         small_layout.addStretch(10)
         #small_layout.setContentsMargins(100,300,100,300)
         small_layout.setSpacing(10)
@@ -165,6 +187,7 @@ class SidebandsTab(QtWidgets.QWidget):
         scanLayout.addLayout(small_layout,0,0)
         
         scanLayout.addWidget(self.scanPlotCanvas,1,0)
+        #scanLayout.addWidget(nav,2,0)
         scanLayout.addWidget(self.horizontal_plot_btn,2,0)
         scanLayout.addWidget(self.horPlotCanvas,3,0)
         
@@ -207,7 +230,7 @@ class SidebandsTab(QtWidgets.QWidget):
         self.setLayout(box2)
         
         
-        
+    ################################################ functions #################################################################      
         
         
     def import_scan(self):
@@ -226,25 +249,32 @@ class SidebandsTab(QtWidgets.QWidget):
             list_t = self.import_spectrum(flist[0])[0]
             n_t = len(list_t)
          
-            self_array = np.zeros(shape=(self.n,n_t))
+            rabbit_array = np.zeros(shape=(self.n,n_t))
             
             for i in range(self.n):
-                self_array[i] = self.import_spectrum(flist[i])[1]
+                rabbit_array[i] = self.import_spectrum(flist[i])[1]
            
-            self.self_mat = self_array
-            self.self_t = list_t
+            self.rabbit_mat = rabbit_array
+            self.shaped_rabbit_mat = rabbit_array
+            self.rabbit_t = list_t
             
-            self.scanPlotTrace = self.scanPlotAxis.matshow(self.self_mat)
+            self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat)
             self.scanPlotAxis.set_aspect('auto')
             self.scanPlotAxis.set_ylabel("Delay", fontsize=10)
             self.scanPlotAxis.set_xlabel("ToF", fontsize=10)
-            self.scanPlotAxis.set_title("Select two sidebands (in red) in phase quadrature by clicking on the scan \n Also select a band to retrieve the background jitter (in black)", fontsize=8)
+
             
             
             self.scanPlotCanvas.draw()
             
             self.scanPlotCanvas.mpl_connect('button_press_event', self.onclick)
             
+            
+            
+    def exclusive(self, clickedbox, box2, box3):
+        if clickedbox.isChecked():
+            box2.setChecked(False)
+            box3.setChecked(False)
       
     def onclick(self, event):
         
@@ -254,27 +284,21 @@ class SidebandsTab(QtWidgets.QWidget):
                 self.scanPlotAxis.axvline(x=event.xdata,color='black')
                 self.BG_vector.append(event.xdata)
                 self.scanPlotCanvas.draw()
-                #self.scope2PlotCanvas.draw()
                 self.nbr_clicks += 1
                 
             else:
-                self.scanPlotAxis.set_title("Select two sidebands in phase quadrature by clicking on the scan \n Also select a band to retrieve the background jitter (in black)", fontsize=8)
+                
                     
                 self.scanPlotAxis.axvline(x=event.xdata,color='red')
-                #self.scope2PlotAxis.axvline(x=self.self_t[int(event.xdata)],color='red')  #second view of the scope
-                self.SB_vector.append(event.xdata)
-                
+                self.SB_vector.append(event.xdata)            
                 self.scanPlotCanvas.draw()
-                
-                #self.scope2PlotCanvas.draw()
                 self.nbr_clicks+=1
-                self.scanPlotAxis.set_title("Select two sidebands in phase quadrature by clicking on the scan \n Also select a band to retrieve the background jitter (in black)", fontsize=8)
+                
         if self.nbr_clicks>6:
             self.SB_vector = []
             self.BG_vector = []
             self.scanPlotAxis.clear()
-            self.scanPlotTrace = self.scanPlotAxis.matshow(self.self_mat)
-            self.scanPlotAxis.set_title("Select two sidebands in phase quadrature by clicking on the scan \n Also select a band to retrieve the background jitter (in black)", fontsize=8)
+            self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat)
             self.scanPlotAxis.set_aspect('auto')
             self.scanPlotAxis.set_ylabel("Delay (steps)", fontsize=16)
             self.scanPlotAxis.set_xlabel("ToF", fontsize=16)
@@ -319,18 +343,20 @@ class SidebandsTab(QtWidgets.QWidget):
         return [x_data,y_data]
         
        
-    def cosine(self, x, O, A, phi):
+    def cosine(self, x, O, A, phi):  # function used for the sinusoidal fit
         self.scan_step = float(self.step_display.text())
         tau_step = self.scan_step/(self.c_m_s*10**9)  #speed of light in nm/s     
         w = self.omega*tau_step  #laser frequency with step units
         return O+A*np.cos(4*w*x+phi)
     
-    def lin_fit(self, x, a, b):
+    def lin_fit(self, x, a, b):  #function used for the linear fit of the error signal
         return a*x+b
     
     
-    def SBPlotDraw(self):
+    def SBPlotDraw(self): # integrates, fits and plots the sidebands
+        
         self.SBPlotAxis.clear()
+        
         # first integrate
         
         self.int_SB1 = []
@@ -344,42 +370,40 @@ class SidebandsTab(QtWidgets.QWidget):
         
         self.retrieved_SB1 = []
         self.retrieved_SB2 = []
-        self.int_offset = []
-        #print(self.SB_vector)
+
         for elt in self.SB_vector:
             self.SB_vector_int.append(int(elt))
         for elt in self.BG_vector:
             self.BG_vector_int.append(int(elt))
         self.SB_vector_int.sort()
         self.BG_vector_int.sort()
-        for i in range(3):
-            if i==0:  # first sideband
-                int_left = self.SB_vector_int[0]
-                int_right = self.SB_vector_int[1]
-                width = int_right-int_left
-                for i in range(self.n):
-                    self.int_SB1.append(np.trapz(self.self_mat[i][int_left:int_right])/width)
-            if i==1:  #2nd sideband
-                int_left = self.SB_vector_int[2]
-                int_right = self.SB_vector_int[3]
-                width = int_right-int_left
-                for i in range(self.n):
-                    self.int_SB2.append(np.trapz(self.self_mat[i][int_left:int_right])/width)
-                    
-            if i==2:  #3rd sideband
-                int_left = self.BG_vector_int[0]
-                int_right = self.BG_vector_int[1]
-                width = int_right-int_left
-                for i in range(self.n):
-                    integral=np.trapz(self.self_mat[i][int_left:int_right])/width
-                    self.retrieved_SB1.append(self.int_SB1[i]-integral)
-                    self.retrieved_SB2.append(self.int_SB2[i]-integral)
-                    self.int_offset.append(integral)
+    
+        #3rd sideband + normalization
+        int_left = self.BG_vector_int[0]
+        int_right = self.BG_vector_int[1]
+        width = int_right-int_left
+        for i in range(self.n):
+            int_background = np.trapz(self.rabbit_mat[i][int_left:int_right])/width
+
+            
+            
+            self.shaped_rabbit_mat[i] = self.rabbit_mat[i] - int_background
+            norm = np.trapz(self.shaped_rabbit_mat[i])
+            self.shaped_rabbit_mat[i] /= norm
+               
+            
+            #self.retrieved_SB1.append((self.int_SB1[i]-int_background)/norm)
+            #self.retrieved_SB2.ap pend((self.int_SB2[i]-int_background)/norm)
+  
+            self.retrieved_SB1.append(np.trapz(self.shaped_rabbit_mat[i][self.SB_vector_int[0]:self.SB_vector_int[1]])/(self.SB_vector_int[1]-self.SB_vector_int[0]))
+            self.retrieved_SB2.append(np.trapz(self.shaped_rabbit_mat[i][self.SB_vector_int[2]:self.SB_vector_int[3]])/(self.SB_vector_int[3]-self.SB_vector_int[2]))            
+            
+            #self.int_offset.append(int_background)
         
         
         self.data_x = np.linspace(0, self.n, self.n)
         
-        # first fit
+        # fit
         params1, cov1 = optimize.curve_fit(self.cosine, self.data_x, self.retrieved_SB1)
         
         
@@ -390,6 +414,9 @@ class SidebandsTab(QtWidgets.QWidget):
         params2, cov2 = optimize.curve_fit(self.cosine, self.data_x, self.retrieved_SB2)
         self.O2 = params2[0]
         self.A2 = params2[1]
+        
+        self.phi1 = params1[2]
+        self.phi2 = params2[2]
         
         self.dphi = params1[2]-params2[2]
         
@@ -406,7 +433,7 @@ class SidebandsTab(QtWidgets.QWidget):
         
         self.SBPlotAxis.plot(self.data_x, self.retrieved_SB1, label='SB1', linewidth=2)
         self.SBPlotAxis.plot(self.data_x, self.retrieved_SB2, label='SB2', linewidth=2)
-        #self.SBPlotAxis.plot(self.data_x, self.int_offset, label='background')
+        
         
         
         #plot fitted sidebands 
@@ -427,10 +454,20 @@ class SidebandsTab(QtWidgets.QWidget):
         self.dphi_display.setText(str(round(self.dphi,8)))
         
         
+        '''
+        #refresh scan with normalization and offset
+        self.scanPlotTrace = self.scanPlotAxis.matshow(self.shaped_rabbit_mat)
+        self.scanPlotAxis.set_aspect('auto')
+        self.scanPlotAxis.set_ylabel("Delay (steps)", fontsize=16)
+        self.scanPlotAxis.set_xlabel("ToF", fontsize=16)
+        self.scanPlotCanvas.draw()
+        '''
         
-    def horPlotDraw(self):
+        
+        
+    def horPlotDraw(self):  # displays the ToF spectrum at step 1
         self.horPlotAxis.clear()
-        self.horPlotAxis.plot(self.self_mat[0])
+        self.horPlotAxis.plot(self.rabbit_mat[0])
         self.horPlotAxis.set_title("ToF signal at first step", fontsize=8)
         self.horPlotAxis.set_ylabel("Signal (V)", fontsize=10)
         self.horPlotAxis.set_xlabel("ToF", fontsize=10)
@@ -438,44 +475,51 @@ class SidebandsTab(QtWidgets.QWidget):
         self.horPlotCanvas.draw()
         
     
-    def errorPlotDraw(self):
+    def errorPlotDraw(self): #displays the error signal
         
+        ddphi = self.dphi - np.pi/2
         self.errorPlotAxis.clear()
         self.list_error = []
         self.list_error_wrapped = []
         
         list_error_fit = []
+        
         self.list_error = np.unwrap(np.arctan2(
             (self.retrieved_SB1 - self.O1)/self.A1,
             (self.retrieved_SB2 - self.O2)/self.A2
         ))
+        
+        
+        listcos =[]
+        for elt in self.retrieved_SB2:
+            listcos.append((elt - self.O2)/self.A2)
+
         list_error_fit = np.unwrap(np.arctan2(
             (self.fit_SB1 - self.O1)/self.A1,
             (self.fit_SB2 - self.O2)/self.A2
         ))
         
-        
+    
         #list_error_fit = []
         self.list_error_wrapped = np.arctan2(
             (self.retrieved_SB1 - self.O1)/self.A1,
             (self.retrieved_SB2 - self.O2)/self.A2
         )
-        '''
-        list_error_fit = np.arctan2(
-            (self.fit_SB1 - self.O1)/self.A1,
-            (self.fit_SB2 - self.O2)/self.A2
-        )
-        '''
-        param_lin, cov = optimize.curve_fit(self.lin_fit, self.data_x, self.list_error)
-        
+
         self.data_x_nm=[]
         for elt in self.data_x:
             self.data_x_nm.append(elt*self.scan_step)
+            
+            
+        self.param_lin, cov = optimize.curve_fit(self.lin_fit, self.data_x, self.list_error)
+        
+        
         
         
         self.errorPlotAxis.plot(self.data_x_nm, self.list_error, label= "Error signal")
         self.errorPlotAxis.plot(self.data_x_nm, list_error_fit, 'k--', label="Error signal extracted from cosine fit", )
-        self.errorPlotAxis.plot(self.data_x_nm, self.lin_fit(self.data_x, param_lin[0], param_lin[1]), label= "Linear fit of the error signal")  
+        self.errorPlotAxis.plot(self.data_x_nm, self.lin_fit(self.data_x, self.param_lin[0], self.param_lin[1]), label= "Linear fit of the error signal")  
+        print("a ="+str(self.param_lin[0]))
         self.errorPlotAxis.set_ylabel("Error signal", fontsize=10)
         self.errorPlotAxis.set_xlabel("Delay (nm)", fontsize=10)
         self.errorPlotAxis.legend(loc='best')

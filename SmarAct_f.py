@@ -205,6 +205,7 @@ class SmarActReader(QtCore.QObject):
                 #print(self.struct.data2)
             elif self.struct.packetType == 3:
                 self.motionEnded.emit()
+                print("emit motionEnded")
             elif self.struct.packetType == 12:
                 print("Channel " + str(self.struct.channelIndex) + "'s speed has been set to " + str(self.struct.data1) + " nm/s")
             # pause loop

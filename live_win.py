@@ -21,7 +21,7 @@ from Rabbit_scan import ScanWidget
 class LiveTab(QtWidgets.QWidget):
     def __init__(self, parent = None):
         """
-        tab
+        tab 1: Live Tab. Allows the user to conenct to the scope, the stage, and to perform a RABBIT scan.
         """
         super(LiveTab, self).__init__(parent=None)
 
@@ -53,7 +53,7 @@ class LiveTab(QtWidgets.QWidget):
         winLayout.addWidget(self.stageWidget)
         winLayout.addWidget(self.scanWidget)
         winLayout.setSpacing(120)
-        #winLayout.addStretch(0)
+        
        
        
         box.addLayout(winLayout)

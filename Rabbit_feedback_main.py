@@ -7,7 +7,7 @@
 import sys
 import os
 
-
+import time
 
 import PyQt5.QtCore as QtCore
 from PyQt5 import QtWidgets
@@ -25,7 +25,7 @@ from Rabbit_scan import ScanningLoop
 
 class RABBIT_feedback(QtWidgets.QTabWidget):
     
-    
+    requestMotion = QtCore.pyqtSignal(int)    
     
     def __init__(self, parent = None):  
         """ 
@@ -48,10 +48,11 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.setWindowTitle("RABBIT feedback")
         self.setWindowIcon(QIcon("lapin.png") )
         
-        self.setGeometry(100, 100, 1500, 1000)
+        self.setGeometry(100, 100, 1510, 1000)
         
         
-        
+        self.mutex = QtCore.QMutex()
+        self.smarActStopCondition = QtCore.QWaitCondition()
         
         
         # prepare the transmission of the data to the graphs (will also be used by the scanning loop)
@@ -78,6 +79,11 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         data_y=[]
         for i in range(len(data[1])):
             data_y.append(data[1][i]-offset)
+            
+            
+            
+            
+        ########### updates scope screen in tab 1 ################
         self.tab1.scopePlotTrace.set_xdata(data[0])
         self.tab1.scopePlotTrace.set_ydata(data_y)
         self.tab1.scopePlotAxis.set_xlim([-5*scale_x, 5*scale_x])
@@ -89,7 +95,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab1.scopePlotCanvas.draw()
        
        
-       
+        ########### updates scope screen in tab 3 ################
         self.tab3.scope2PlotTrace.set_xdata(data[0])
         self.tab3.scope2PlotTrace.set_ydata(data_y)
         self.tab3.scope2PlotAxis.set_xlim([-5*scale_x, 5*scale_x])
@@ -105,6 +111,8 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
        
         self.tab3.scope2PlotCanvas.draw()
        
+        
+        ########### updates position and error screens in tab 3 ################
        
         self.tab3.time_errorPlotAxis.set_ylim([-100,100])
         self.tab3.time_positionPlotAxis.set_ylim([-100,100])
@@ -116,6 +124,8 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             self.tab3.live_time_data.append(self.tab3.live_time_data[-1]+1)
             self.tab3.live_error_data.append(self.tab3.x_error_nm)
             self.tab3.live_position_data.append(self.tab1.stageWidget.PositionNmLCD.value())
+            #
+            #self.tab3.live_position_data.append(self.tab3.currentPos)
            
         else:
             for i in range(le):
@@ -126,7 +136,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
                
             self.tab3.live_error_data[-1] = self.tab3.x_error_nm
             self.tab3.live_position_data[-1] = self.tab3.stageWidget.PositionNmLCD.value()
-           
+            #self.tab3.live_position_data[-1] = self.tab3.currentPos
            
            
            
@@ -134,8 +144,24 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab3.time_errorPlotTrace.set_ydata(self.tab3.live_error_data)
        
         self.tab3.time_errorPlotAxis.set_xlim([self.tab3.live_time_data[0], self.tab3.live_time_data[-1]])
-        self.tab3.time_errorPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_error_data), min(self.tab3.live_error_data)), 1.1*max(max(self.tab3.live_error_data), -min(self.tab3.live_error_data))])
-       
+        #self.tab3.time_errorPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_error_data), min(self.tab3.live_error_data)), 1.1*max(max(self.tab3.live_error_data), -min(self.tab3.live_error_data))])
+        Min = min(self.tab3.live_error_data)
+        Max = max(self.tab3.live_error_data)
+        y_min = 0
+        y_max = 0
+        if Min>0:
+            y_min = 0.99*Min
+        else:
+           y_min = 1.01*Min
+        if Max>0:
+            y_max = 1.01*Max
+        else:
+            y_max = 0.99*Max
+        
+        self.tab3.time_errorPlotAxis.set_ylim([y_min, y_max])
+        
+        
+        
         self.tab3.time_errorPlotAxis.grid(True)
         self.tab3.time_errorPlotAxis.set_ylabel("Error (nm)", fontsize=7)
         self.tab3.time_errorPlotAxis.set_xlabel("Time (step)", fontsize=7)
@@ -147,8 +173,26 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab3.time_positionPlotTrace.set_xdata(self.tab3.live_time_data)
         self.tab3.time_positionPlotTrace.set_ydata(self.tab3.live_position_data)
         self.tab3.time_positionPlotAxis.set_xlim([self.tab3.live_time_data[0], self.tab3.live_time_data[-1]])
-        self.tab3.time_positionPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_position_data), min(self.tab3.live_position_data)), 1.1*max(max(self.tab3.live_position_data), -min(self.tab3.live_position_data))])
-       
+        #self.tab3.time_positionPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_position_data), min(self.tab3.live_position_data)), 1.1*max(max(self.tab3.live_position_data), -min(self.tab3.live_position_data))])
+        Min2 = min(self.tab3.live_position_data)
+        Max2 = max(self.tab3.live_position_data)
+        y_min2 = 0
+        y_max2 = 0
+        if Min2>0:
+            y_min2 = 0.99*Min2
+        else:
+           y_min2 = 1.01*Min2
+        if Max2>0:
+            y_max2 = 1.01*Max2
+        else:
+            y_max2 = 0.99*Max2
+        
+        self.tab3.time_positionPlotAxis.set_ylim([y_min2, y_max2])
+        
+        
+        
+        
+        
         self.tab3.time_positionPlotAxis.grid(True)
         self.tab3.time_positionPlotAxis.set_ylabel("Delay line position (nm)", fontsize=7)
         self.tab3.time_positionPlotAxis.set_xlabel("Time (step)", fontsize=7)
@@ -156,29 +200,82 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab3.time_positionPlotCanvas.draw()
        
       
-        ################## feedback #################
+        ################## performs feedback #################
        
-       
+        # first check that feedback is possible
         self.tab3.checkFeedback()
        
         if self.tab3.feedbackStatus == True:
            
             self.tab1.setDisabled(True)
             self.tab2.setDisabled(True)
-           
+            self.tab3.locking_position_display.setDisabled(True)
+            
             #### first go to locking_position ####
             if self.tab3.feedback_time == 0:
                 
+                ########################
+                #self.mutex.lock()
+                ########################
+                
+                #self.tab1.stageWidget.GotoPositionAbsolute(int(float(self.tab3.locking_position_display.text())))
                 self.tab1.stageWidget.PositionNmSpinBox.setValue(int(float(self.tab3.locking_position_display.text())))
                 self.tab1.stageWidget.PositionFsSpinBox.setValue(self.tab1.stageWidget.PositionNmSpinBox.value()/300)
-        
-               
+                print("Aller à la position initiale")
+                time.sleep(1.)
+                print("after time.sleep")
+                print("positionNmLCD = "+str(self.tab1.stageWidget.PositionNmLCD.value()))
+                self.tab3.U = [0,0]
+                self.tab3.E = [0,0,0]
+                #self.tab3.compensation_shift = int(float(self.tab3.locking_position_display.text()))
+                
+                #############################################
+                #self.smarActStopCondition.wait(self.mutex)
+                #self.mutex.unlock()
+                #############################################
+                
+                
+                #self.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(x))
+                
+                '''
+                
+                
+                self.mutex.lock()
+                initial_distance = float(self.tab3.locking_position_display.text()) - self.tab1.stageWidget.PositionNmLCD.value()
+                self.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(x))
+                self.tab1.stageWidget.smarActReader.motionEnded.connect(self.smarActStopCondition.wakeAll)
+                self.requestMotion.emit(int(initial_distance))
+                print("after request motion")
+                self.smarActStopCondition.wait(self.mutex)
+                print("after .wait")
+                self.mutex.unlock()
+                '''
+                
+                
+                
+                
+            if self.tab3.feedback_time > 0:
+                
+                if self.tab3.launch_feedback_btn.isChecked():
+                    
+                    self.tab3.launch_feedback_test_btn.setDisabled(True)
+                    #### performs feedback ####
+                    self.tab3.FeedbackStep(data, self.tab3.feedback_time)
+                    self.tab3.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK ")
+                    self.tab3.launch_feedback_btn.setChecked(True)
+                
+                if self.tab3.launch_feedback_test_btn.isChecked():
+                    
 
-               #### performs feedback ####
-            self.tab3.FeedbackStepTest()
-            self.tab3.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK ")
-            self.tab3.launch_feedback_btn.setChecked(True)
-           
+                    
+                    self.tab3.launch_feedback_btn.setDisabled(True)
+                    #### performs test feedback ####
+                    self.tab3.FeedbackStepTest(self.tab3.feedback_time)
+                    self.tab3.launch_feedback_test_btn.setText("STOP TEST \n FEEDBACK ")
+                    self.tab3.launch_feedback_test_btn.setChecked(True)
+                
+                
+            
             #### stores data at each step ####
             self.tab3.storedatafolder = self.tab3.storedatafolder_display.text()
             #write data to file
@@ -186,11 +283,13 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             index = str(ii)
             index = (4-len(index)) * "0" + index
             fileName = "FeedbackFile" + index + ".txt"
+           
     
             pathFile = os.path.join(self.tab3.storedatafolder, fileName)
             file = open(pathFile,"w")
             for ii in range(len(data[0])):
                 file.write('%f\t%f\n' % (data[0][ii], data_y[ii]))
+                
             file.close()
             self.tab3.feedback_time+=1
            
@@ -198,12 +297,36 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         else:
             self.tab1.setDisabled(False)
             self.tab2.setDisabled(False)
+            self.tab3.locking_position_display.setDisabled(False)
+            
+            # test
+            self.tab3.launch_feedback_btn.setDisabled(False)
+            self.tab3.launch_feedback_test_btn.setDisabled(False)
+            self.tab3.launch_feedback_test_btn.setText("LAUNCH TEST \n FEEDBACK")
+            self.tab3.launch_feedback_test_btn.setChecked(False)            
+           
             self.tab3.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
             self.tab3.launch_feedback_btn.setChecked(False)
-          
-        
+            
+            self.tab3.feedback_time = 0
+            self.tab3.sum_error = 0.
+            self.tab3.square_sum = 0.
+            self.tab3.list_pos = []
+            self.tab3.list_measured_pos = []
+            #self.tab3.compensation_shift = 0.
         #print("After Display and stabilize")
-      
+        
+        
+
+
+
+    def Print(self):
+        print("motion ended signal received")
+        
+        
+        
+    ################################## RABBIT scan ############################################
+        
     def ActivateDeactivateScan(self):
         # enable/diable the "start scan" button ont he scan widget depending on the other widgets states 
         scopeOn = self.tab1.scopeWidget.scopeGroupBox.isChecked()
