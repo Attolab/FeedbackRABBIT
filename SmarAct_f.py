@@ -140,6 +140,14 @@ SmaractDll.SA_GetPosition_A.argtypes = [
     ctypes.c_ulong]# Parameter 2 : channelIndex
 SmaractDll.SA_GetPosition_A.restype = ctypes.c_ulong
 
+
+# prototype of the SA_GetStatus_A function
+# uint32_t SA_GetPosition_A(uint32_t systemIndex, uint32_t channelIndex);
+SmaractDll.SA_GetStatus_A.argtypes = [
+    ctypes.c_ulong,# Parameter 1 : systemIndex
+    ctypes.c_ulong]# Parameter 2 : channelIndex
+SmaractDll.SA_GetStatus_A.restype = ctypes.c_ulong
+
 # prototype of the SA_CloseSystem function
 # uint32_t SA_CloseSystem(uint32_t systemIndex);
 SmaractDll.SA_CloseSystem.argtypes = [
@@ -190,22 +198,32 @@ class SmarActReader(QtCore.QObject):
         self.isRunning = True
         # initialize packet reading parameters
         status = 9
-        timeout = 500
+        timeout = 2000
         self.struct = DataPacketStructure(1,1,1,1,1,1)
         # reading loop : the SmarAct controler sends information by packets
         while self.isRunning:
             # 1) read packet
             status = SmaractDll.SA_ReceiveNextPacket_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(timeout), ctypes.byref(self.struct))
             # 2) analyse packet
+            #print("struct packetType = "+str(self.struct.packetType))
+            #SmaractDll.SA_GetStatus_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(self.channelIndex))
             if self.struct.packetType == 0:
                 SmaractDll.SA_GetPosition_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(self.channelIndex))
+                
+                
+                  
             elif self.struct.packetType == 2:
 #                print "Channel " + str(struct.channelIndex) + " is at position : " + str(struct.data2) + " nm"
                 self.newPosition.emit(self.struct.data2)
                 #print(self.struct.data2)
             elif self.struct.packetType == 3:
                 self.motionEnded.emit()
-                print("emit motionEnded")
+                #print("emit motionEnded")
+                
+            #elif self.struct.packetType == 4: 
+                #data = self.struct.data1
+                #print("get smaract status = "+str(data))
+                
             elif self.struct.packetType == 12:
                 print("Channel " + str(self.struct.channelIndex) + "'s speed has been set to " + str(self.struct.data1) + " nm/s")
             # pause loop

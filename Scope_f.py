@@ -51,6 +51,11 @@ class ScopeReader(QtCore.QObject):
         
         # connect the writeReader signal from the holding scope widget to the writeScope function of this class
         scopeWidget.writeReader.connect(self.writeScope)
+        
+        self.period = 1.*1000  #period of queries, in millisecond
+        
+        
+        self.canAsk = True
 
     def writeScope(self, command):
         #print(command)
@@ -112,7 +117,7 @@ class ScopeReader(QtCore.QObject):
 #                           "Stop":self.Stop(),
 #                           "Starting":""}
         while self.mode: # An unempty string is considered True in python
-            self.thread().msleep(1000)
+            self.thread().msleep(100)
             if self.mode == "Auto":
                 self.Auto()
             elif self.mode == "Normal":
@@ -130,15 +135,22 @@ class ScopeReader(QtCore.QObject):
             self.ReadWaveform()
             self.ReadParameters()
             # pause loop
-            self.thread().msleep(1000)
+            self.thread().msleep(self.period)
 
     def Normal(self):
         while self.mode == "Normal":
-            self.ReadWaveform()
-            self.ReadParameters()
+            
+            if self.canAsk == True:
+                #print("allow VBS? command for new scope data")
+                self.ReadWaveform()
+                self.ReadParameters()
             # pause loop
-            self.thread().msleep(1000)
-
+                
+            #else:
+                #print("VBS? command forbidden")
+                
+            self.thread().msleep(self.period)
+            self.canAsk = True
     def Single(self):
         # make a single acquisition before switching to the stopped state when the oscilloscope is ready.
         self.ReadWaveform()
@@ -146,12 +158,12 @@ class ScopeReader(QtCore.QObject):
         while self.mode == "Single":
             # pause loop
             self.writeScope("""VBS? 'return=app.Acquisition.TriggerMode' """)
-            self.thread().msleep(1000)
+            self.thread().msleep(self.period)
 
     def Stop(self):
         # Wait for the user to switch to an other trigger mode
         while self.mode == "Stop":
-            self.thread().msleep(1000)
+            self.thread().msleep(self.period)
         
     def Off(self):
         self.mode = ""
@@ -339,6 +351,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
     def TransmitData(self, data):
         if self.sweepsProgressBar.value() >= 1:
             self.emitData.emit(data)
+            #print("emitData emitted")
         
     def quitScope(self):
         if self.scopeGroupBox.isChecked():

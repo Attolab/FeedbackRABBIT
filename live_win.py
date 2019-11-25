@@ -7,7 +7,7 @@ Created on Mon Jun 17 11:14:36 2019
 
 
 
-
+from PyQt5.QtGui import QColor
 
 from PyQt5 import QtWidgets
 import matplotlib.pyplot as plt
@@ -62,12 +62,24 @@ class LiveTab(QtWidgets.QWidget):
       
         self.setLayout(box)
         
+
+    ############################### functions ####################################
+        
+    ###################### updating the live screen  ##############################
         
         
-        
+    def updateLiveScreen(self, data, scale_x, scale_y, data_y):
         
    
-    
+        self.scopePlotTrace.set_xdata(data[0])
+        self.scopePlotTrace.set_ydata(data_y)
+        self.scopePlotAxis.set_xlim([-5*scale_x, 5*scale_x])
+        self.scopePlotAxis.set_ylim([-4*scale_y, 4*scale_y])
+        self.scopePlotAxis.grid(True)
+        self.scopePlotAxis.set_ylabel("Tension (V)", fontsize=17)
+        self.scopePlotAxis.set_xlabel("Time (s)", fontsize=17)
+      
+        self.scopePlotCanvas.draw()    
 
 
 

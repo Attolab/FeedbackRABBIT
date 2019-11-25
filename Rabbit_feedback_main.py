@@ -18,6 +18,7 @@ from PyQt5.QtGui import QIcon
 import live_win 
 import sidebands_win
 import feedback_win
+import scanStab_win
 from Rabbit_scan import ScanningLoop
 
 
@@ -40,10 +41,12 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab1 = live_win.LiveTab()
         self.tab2 = sidebands_win.SidebandsTab()
         self.tab3 = feedback_win.FeedbackTab(self.tab1.scopeWidget, self.tab1.stageWidget, self.tab2)
+        self.tab4 = scanStab_win.scanStabTab(self.tab3)
         
         self.addTab(self.tab1,"Live")
         self.addTab(self.tab2, "Sidebands")
         self.addTab(self.tab3, "Feedback")
+        #self.addTab(self.tab4, "Stab scan")
         
         self.setWindowTitle("RABBIT feedback")
         self.setWindowIcon(QIcon("lapin.png") )
@@ -54,6 +57,12 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.mutex = QtCore.QMutex()
         self.smarActStopCondition = QtCore.QWaitCondition()
         
+        self.canMove = False
+        
+        self.tStart = 3
+        
+        self.period = 1. #s, period of the feedback loop
+        self.tab3.T = self.period #ins, period in the PID controller       
         
         # prepare the transmission of the data to the graphs (will also be used by the scanning loop)
         self.ConnectDisplay()
@@ -80,132 +89,20 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         for i in range(len(data[1])):
             data_y.append(data[1][i]-offset)
             
-            
-            
-            
         ########### updates scope screen in tab 1 ################
-        self.tab1.scopePlotTrace.set_xdata(data[0])
-        self.tab1.scopePlotTrace.set_ydata(data_y)
-        self.tab1.scopePlotAxis.set_xlim([-5*scale_x, 5*scale_x])
-        self.tab1.scopePlotAxis.set_ylim([-4*scale_y, 4*scale_y])
-        self.tab1.scopePlotAxis.grid(True)
-        self.tab1.scopePlotAxis.set_ylabel("Tension (V)", fontsize=17)
-        self.tab1.scopePlotAxis.set_xlabel("Time (s)", fontsize=17)
-       
-        self.tab1.scopePlotCanvas.draw()
-       
-       
-        ########### updates scope screen in tab 3 ################
-        self.tab3.scope2PlotTrace.set_xdata(data[0])
-        self.tab3.scope2PlotTrace.set_ydata(data_y)
-        self.tab3.scope2PlotAxis.set_xlim([-5*scale_x, 5*scale_x])
-        self.tab3.scope2PlotAxis.set_ylim([-4*scale_y, 4*scale_y])
-        self.tab3.scope2PlotAxis.grid(True)
-        self.tab3.scope2PlotAxis.set_ylabel("Tension (V)", fontsize=17)
-        self.tab3.scope2PlotAxis.set_xlabel("Time (s)", fontsize=17)
-       
-        if len(self.tab2.SB_vector_int)==6:
-            for i in range(6):
-                self.tab3.scope2PlotAxis.axvline(x=self.SB_vector_int[i],color='yellow')
-           
-       
-        self.tab3.scope2PlotCanvas.draw()
-       
+        self.tab1.updateLiveScreen(data, scale_x, scale_y, data_y)
         
-        ########### updates position and error screens in tab 3 ################
-       
-        self.tab3.time_errorPlotAxis.set_ylim([-100,100])
-        self.tab3.time_positionPlotAxis.set_ylim([-100,100])
-       
-
-       
-        le = len(self.tab3.live_time_data)
-        if le<50:
-            self.tab3.live_time_data.append(self.tab3.live_time_data[-1]+1)
-            self.tab3.live_error_data.append(self.tab3.x_error_nm)
-            self.tab3.live_position_data.append(self.tab1.stageWidget.PositionNmLCD.value())
-            #
-            #self.tab3.live_position_data.append(self.tab3.currentPos)
-           
-        else:
-            for i in range(le):
-                self.tab3.live_time_data[i]+=1
-            for i in range(le-1):
-                self.tab3.live_error_data[i] = self.tab3.live_error_data[i+1]
-                self.tab3.live_position_data[i] = self.tab3.live_position_data[i+1]
-               
-            self.tab3.live_error_data[-1] = self.tab3.x_error_nm
-            self.tab3.live_position_data[-1] = self.tab3.stageWidget.PositionNmLCD.value()
-            #self.tab3.live_position_data[-1] = self.tab3.currentPos
-           
-           
-           
-        self.tab3.time_errorPlotTrace.set_xdata(self.tab3.live_time_data)
-        self.tab3.time_errorPlotTrace.set_ydata(self.tab3.live_error_data)
-       
-        self.tab3.time_errorPlotAxis.set_xlim([self.tab3.live_time_data[0], self.tab3.live_time_data[-1]])
-        #self.tab3.time_errorPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_error_data), min(self.tab3.live_error_data)), 1.1*max(max(self.tab3.live_error_data), -min(self.tab3.live_error_data))])
-        Min = min(self.tab3.live_error_data)
-        Max = max(self.tab3.live_error_data)
-        y_min = 0
-        y_max = 0
-        if Min>0:
-            y_min = 0.99*Min
-        else:
-           y_min = 1.01*Min
-        if Max>0:
-            y_max = 1.01*Max
-        else:
-            y_max = 0.99*Max
-        
-        self.tab3.time_errorPlotAxis.set_ylim([y_min, y_max])
-        
-        
-        
-        self.tab3.time_errorPlotAxis.grid(True)
-        self.tab3.time_errorPlotAxis.set_ylabel("Error (nm)", fontsize=7)
-        self.tab3.time_errorPlotAxis.set_xlabel("Time (step)", fontsize=7)
-       
-        self.tab3.time_errorPlotCanvas.draw()
-       
-           
-       
-        self.tab3.time_positionPlotTrace.set_xdata(self.tab3.live_time_data)
-        self.tab3.time_positionPlotTrace.set_ydata(self.tab3.live_position_data)
-        self.tab3.time_positionPlotAxis.set_xlim([self.tab3.live_time_data[0], self.tab3.live_time_data[-1]])
-        #self.tab3.time_positionPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_position_data), min(self.tab3.live_position_data)), 1.1*max(max(self.tab3.live_position_data), -min(self.tab3.live_position_data))])
-        Min2 = min(self.tab3.live_position_data)
-        Max2 = max(self.tab3.live_position_data)
-        y_min2 = 0
-        y_max2 = 0
-        if Min2>0:
-            y_min2 = 0.99*Min2
-        else:
-           y_min2 = 1.01*Min2
-        if Max2>0:
-            y_max2 = 1.01*Max2
-        else:
-            y_max2 = 0.99*Max2
-        
-        self.tab3.time_positionPlotAxis.set_ylim([y_min2, y_max2])
-        
-        
-        
-        
-        
-        self.tab3.time_positionPlotAxis.grid(True)
-        self.tab3.time_positionPlotAxis.set_ylabel("Delay line position (nm)", fontsize=7)
-        self.tab3.time_positionPlotAxis.set_xlabel("Time (step)", fontsize=7)
-       
-        self.tab3.time_positionPlotCanvas.draw()
-       
-      
+        ########### updates screens in tab 3 ################        
+        self.tab3.updateFeedbackScreens(data, scale_x, scale_y, offset, data_y)
+     
         ################## performs feedback #################
        
         # first check that feedback is possible
         self.tab3.checkFeedback()
        
         if self.tab3.feedbackStatus == True:
+            
+            print("feeback")
            
             self.tab1.setDisabled(True)
             self.tab2.setDisabled(True)
@@ -217,64 +114,44 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
                 ########################
                 #self.mutex.lock()
                 ########################
-                
+                self.tab1.stageWidget.smarActReader.motionEnded.connect(self.allowMove)
                 #self.tab1.stageWidget.GotoPositionAbsolute(int(float(self.tab3.locking_position_display.text())))
                 self.tab1.stageWidget.PositionNmSpinBox.setValue(int(float(self.tab3.locking_position_display.text())))
                 self.tab1.stageWidget.PositionFsSpinBox.setValue(self.tab1.stageWidget.PositionNmSpinBox.value()/300)
                 print("Aller à la position initiale")
-                time.sleep(1.)
+                #time.sleep(0.5)
                 print("after time.sleep")
-                print("positionNmLCD = "+str(self.tab1.stageWidget.PositionNmLCD.value()))
+                #print("positionNmLCD = "+str(self.tab1.stageWidget.PositionNmLCD.value()))
                 self.tab3.U = [0,0]
                 self.tab3.E = [0,0,0]
                 #self.tab3.compensation_shift = int(float(self.tab3.locking_position_display.text()))
                 
-                #############################################
-                #self.smarActStopCondition.wait(self.mutex)
-                #self.mutex.unlock()
-                #############################################
                 
-                
-                #self.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(x))
-                
-                '''
-                
-                
-                self.mutex.lock()
-                initial_distance = float(self.tab3.locking_position_display.text()) - self.tab1.stageWidget.PositionNmLCD.value()
-                self.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(x))
-                self.tab1.stageWidget.smarActReader.motionEnded.connect(self.smarActStopCondition.wakeAll)
-                self.requestMotion.emit(int(initial_distance))
-                print("after request motion")
-                self.smarActStopCondition.wait(self.mutex)
-                print("after .wait")
-                self.mutex.unlock()
-                '''
-                
-                
-                
-                
-            if self.tab3.feedback_time > 0:
+            if self.tab3.feedback_time > self.tStart:
+                #print("canMove = "+str(self.canMove))
+                #if self.canMove == True:
+                    
                 
                 if self.tab3.launch_feedback_btn.isChecked():
                     
                     self.tab3.launch_feedback_test_btn.setDisabled(True)
                     #### performs feedback ####
-                    self.tab3.FeedbackStep(data, self.tab3.feedback_time)
+                    self.tab3.FeedbackStep(data, self.tab3.feedback_time, self.tStart)
                     self.tab3.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK ")
                     self.tab3.launch_feedback_btn.setChecked(True)
                 
+                        #self.canMove = False
+                        
                 if self.tab3.launch_feedback_test_btn.isChecked():
                     
 
-                    
                     self.tab3.launch_feedback_btn.setDisabled(True)
                     #### performs test feedback ####
-                    self.tab3.FeedbackStepTest(self.tab3.feedback_time)
+                    self.tab3.FeedbackStepTest(self.tab3.feedback_time, self.tStart)
                     self.tab3.launch_feedback_test_btn.setText("STOP TEST \n FEEDBACK ")
                     self.tab3.launch_feedback_test_btn.setChecked(True)
                 
-                
+                        #self.canMove = False
             
             #### stores data at each step ####
             self.tab3.storedatafolder = self.tab3.storedatafolder_display.text()
@@ -432,6 +309,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     def ConnectScanSignals(self):
         self.scanningLoop.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(self.tab1.stageWidget.PositionNmSpinBox.value() + x))
         self.tab1.stageWidget.smarActReader.motionEnded.connect(self.scanningLoop.smarActStopCondition.wakeAll)
+        
         # Allow the scanningLoop to set the scope trigger mode
         #self.scanningLoop.setScopeMode.connect(self.scopeWidget.triggerModeComboBox.setCurrentIndex)
         # Allow the scanningLoop to clear the scope memory after motion :
@@ -459,7 +337,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     
     def closeEvent(self, event):
         reply = QtWidgets.QMessageBox.question(self, 'Message',
-            "Are you sure to quit?", QtWidgets.QMessageBox.Yes | 
+            "Do you really want to close the program?", QtWidgets.QMessageBox.Yes | 
             QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
     
         if reply == QtWidgets.QMessageBox.Yes:
@@ -475,6 +353,11 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         else:
             event.ignore()      
             
+    def allowMove(self):
+        #print("allow move")
+        self.tab1.scopeWidget.reader.canAsk = True
+        #print("canAsk set to TRUE")
+        self.canMove = True
     
         
      
