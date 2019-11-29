@@ -40,16 +40,16 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     
         self.tab1 = live_win.LiveTab()
         self.tab2 = sidebands_win.SidebandsTab()
-        self.tab3 = feedback_win.FeedbackTab(self.tab1.scopeWidget, self.tab1.stageWidget, self.tab2)
-        self.tab4 = scanStab_win.scanStabTab(self.tab3)
+        self.tab3 = feedback_win.FeedbackTab(self.tab1, self.tab2)
+        #self.tab4 = scanStab_win.scanStabTab(self.tab3)
         
         self.addTab(self.tab1,"Live")
         self.addTab(self.tab2, "Sidebands")
         self.addTab(self.tab3, "Feedback")
         #self.addTab(self.tab4, "Stab scan")
         
-        self.setWindowTitle("RABBIT feedback")
-        self.setWindowIcon(QIcon("lapin.png") )
+        self.setWindowTitle("RABBIT Active Stabilization")
+        self.setWindowIcon(QIcon("icon_sirius.png") )
         
         self.setGeometry(100, 100, 1510, 1000)
         
@@ -59,10 +59,15 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         
         self.canMove = False
         
-        self.tStart = 3
+
         
-        self.period = 1. #s, period of the feedback loop
+        self.period = 0.1 #s, period of the feedback loop
+        
         self.tab3.T = self.period #ins, period in the PID controller       
+        
+        
+        
+        self.tGlob = 0
         
         # prepare the transmission of the data to the graphs (will also be used by the scanning loop)
         self.ConnectDisplay()
@@ -81,127 +86,30 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         
         
     def DisplayAndStabilize(self, data):  #updates the scope windows (scope 1, scope 2, time error plot and time delay position) and performs feedback
-        scale_y=self.tab1.scopeWidget.YScale
-        scale_x=self.tab1.scopeWidget.XScale
-        offset=self.tab1.scopeWidget.YOffset
-        
-        data_y=[]
-        for i in range(len(data[1])):
-            data_y.append(data[1][i]-offset)
-            
+        scale_y = self.tab1.scopeWidget.YScale
+        scale_x = self.tab1.scopeWidget.XScale
+        y_offset = self.tab1.scopeWidget.YOffset
+        x_offset = self.tab1.scopeWidget.XOffset
+
         ########### updates scope screen in tab 1 ################
-        self.tab1.updateLiveScreen(data, scale_x, scale_y, data_y)
+        self.tab1.updateLiveScreen(data, scale_x, scale_y, x_offset, y_offset)
         
-        ########### updates screens in tab 3 ################        
-        self.tab3.updateFeedbackScreens(data, scale_x, scale_y, offset, data_y)
-     
+        ########### updates screens in tab 3 ################
+
+        if self.tGlob%6 == 0: #☻doesnt update all the time during feedback
+            self.tab3.updateFeedbackScreens(data, scale_x, scale_y, x_offset, y_offset)
+            print("")
+            print("DISPLAY")
+            print("")
+            
+            
         ################## performs feedback #################
-       
-        # first check that feedback is possible
-        self.tab3.checkFeedback()
-       
-        if self.tab3.feedbackStatus == True:
-            
-            print("feeback")
-           
-            self.tab1.setDisabled(True)
-            self.tab2.setDisabled(True)
-            self.tab3.locking_position_display.setDisabled(True)
-            
-            #### first go to locking_position ####
-            if self.tab3.feedback_time == 0:
-                
-                ########################
-                #self.mutex.lock()
-                ########################
-                self.tab1.stageWidget.smarActReader.motionEnded.connect(self.allowMove)
-                #self.tab1.stageWidget.GotoPositionAbsolute(int(float(self.tab3.locking_position_display.text())))
-                self.tab1.stageWidget.PositionNmSpinBox.setValue(int(float(self.tab3.locking_position_display.text())))
-                self.tab1.stageWidget.PositionFsSpinBox.setValue(self.tab1.stageWidget.PositionNmSpinBox.value()/300)
-                print("Aller à la position initiale")
-                #time.sleep(0.5)
-                print("after time.sleep")
-                #print("positionNmLCD = "+str(self.tab1.stageWidget.PositionNmLCD.value()))
-                self.tab3.U = [0,0]
-                self.tab3.E = [0,0,0]
-                #self.tab3.compensation_shift = int(float(self.tab3.locking_position_display.text()))
-                
-                
-            if self.tab3.feedback_time > self.tStart:
-                #print("canMove = "+str(self.canMove))
-                #if self.canMove == True:
-                    
-                
-                if self.tab3.launch_feedback_btn.isChecked():
-                    
-                    self.tab3.launch_feedback_test_btn.setDisabled(True)
-                    #### performs feedback ####
-                    self.tab3.FeedbackStep(data, self.tab3.feedback_time, self.tStart)
-                    self.tab3.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK ")
-                    self.tab3.launch_feedback_btn.setChecked(True)
-                
-                        #self.canMove = False
-                        
-                if self.tab3.launch_feedback_test_btn.isChecked():
-                    
+        
+        self.tab3.ForwardFeedback(data)
 
-                    self.tab3.launch_feedback_btn.setDisabled(True)
-                    #### performs test feedback ####
-                    self.tab3.FeedbackStepTest(self.tab3.feedback_time, self.tStart)
-                    self.tab3.launch_feedback_test_btn.setText("STOP TEST \n FEEDBACK ")
-                    self.tab3.launch_feedback_test_btn.setChecked(True)
-                
-                        #self.canMove = False
-            
-            #### stores data at each step ####
-            self.tab3.storedatafolder = self.tab3.storedatafolder_display.text()
-            #write data to file
-            ii = self.tab3.feedback_time
-            index = str(ii)
-            index = (4-len(index)) * "0" + index
-            fileName = "FeedbackFile" + index + ".txt"
-           
-    
-            pathFile = os.path.join(self.tab3.storedatafolder, fileName)
-            file = open(pathFile,"w")
-            for ii in range(len(data[0])):
-                file.write('%f\t%f\n' % (data[0][ii], data_y[ii]))
-                
-            file.close()
-            self.tab3.feedback_time+=1
-           
-           
-        else:
-            self.tab1.setDisabled(False)
-            self.tab2.setDisabled(False)
-            self.tab3.locking_position_display.setDisabled(False)
-            
-            # test
-            self.tab3.launch_feedback_btn.setDisabled(False)
-            self.tab3.launch_feedback_test_btn.setDisabled(False)
-            self.tab3.launch_feedback_test_btn.setText("LAUNCH TEST \n FEEDBACK")
-            self.tab3.launch_feedback_test_btn.setChecked(False)            
-           
-            self.tab3.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
-            self.tab3.launch_feedback_btn.setChecked(False)
-            
-            self.tab3.feedback_time = 0
-            self.tab3.sum_error = 0.
-            self.tab3.square_sum = 0.
-            self.tab3.list_pos = []
-            self.tab3.list_measured_pos = []
-            #self.tab3.compensation_shift = 0.
-        #print("After Display and stabilize")
-        
-        
+        self.tGlob += 1
 
 
-
-    def Print(self):
-        print("motion ended signal received")
-        
-        
-        
     ################################## RABBIT scan ############################################
         
     def ActivateDeactivateScan(self):
@@ -352,13 +260,14 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             QtCore.QCoreApplication.instance().quit
         else:
             event.ignore()      
-            
+ 
+    '''           
     def allowMove(self):
         #print("allow move")
         self.tab1.scopeWidget.reader.canAsk = True
         #print("canAsk set to TRUE")
         self.canMove = True
-    
+        '''
         
      
 def main():

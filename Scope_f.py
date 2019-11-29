@@ -52,7 +52,7 @@ class ScopeReader(QtCore.QObject):
         # connect the writeReader signal from the holding scope widget to the writeScope function of this class
         scopeWidget.writeReader.connect(self.writeScope)
         
-        self.period = 1.*1000  #period of queries, in millisecond
+        self.period = 0.1*1000  #period of queries, in millisecond
         
         
         self.canAsk = True
@@ -97,8 +97,9 @@ class ScopeReader(QtCore.QObject):
         #update parameters such as Verscale, Horscale, etc.....
         self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.VerScale' """)
         self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.HorScale'""")
-        
+       
         self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.VerticalOffset' """)
+        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.HorizontalOffset' """) 
         
     
 
@@ -185,9 +186,10 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         QtWidgets.QFrame.__init__(self, parent)
         self.setupUi(self)
         self.scope=win32com.client.Dispatch("LeCroy.ActiveDSOCtrl.1")
-        self.YScale=0.01
-        self.XScale=5.
-        self.YOffset=0.
+        self.YScale = 0.01
+        self.XScale = 5.
+        self.YOffset = 0.
+        self.XOffset = 0.
         # connect group box to start/stop procedure
         self.scopeGroupBox.toggled.connect(self.ScopeGroupBoxToggled)
         print("Connect Group Box")
@@ -207,6 +209,9 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
                 self.OffsetLCD.blockSignals(False)
                 #print("YOffset="+str(self.YOffset))
                 
+            elif updatedData[0] == "HorizontalOffset":
+                self.XOffset=float(updatedData[1])
+             
             elif updatedData[0] == "VerScale":           
                 self.YScale=float(updatedData[1])
                 #print("Verscale="+str(self.YScale))

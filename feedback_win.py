@@ -6,7 +6,7 @@ Created on Tue Jun 18 11:48:46 2019
 """
 import PyQt5.QtCore as QtCore
 
-
+import os
 from PyQt5.QtGui import QIcon, QFont
 from PyQt5 import QtWidgets
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ import Rabbit_scan_stab
 import numpy as np
 
 class FeedbackTab(QtWidgets.QWidget):
-    def __init__(self,  scopeWin, stageWin, Tab2):
+    def __init__(self,  Tab1, Tab2):
         """
         tab 3: Feedback TAb. Allows the user to select PID parameters, locking position, etc.. and to launch the feedback. In oder to test the program, another widget can be used to generate artificial signals with any level of noise and any drift of the delay.
         """
@@ -36,7 +36,9 @@ class FeedbackTab(QtWidgets.QWidget):
         self.Ki = 0.
         self.Kd = 0.
         
-        self.T = 0.5  #scope refreshing period in s (used in the PID feedback)
+        self.T = 0.1  #scope refreshing period in s (used in the PID feedback)
+        self.tStart = int(2/self.T)
+
         
         self.U = [0,0]  #two last feedback commands in nm (PID feedback)
         self.E = [0,0,0]  #two last errors in nm (PID feedback)
@@ -85,12 +87,12 @@ class FeedbackTab(QtWidgets.QWidget):
         self.offset_error_signal = 0.
 
         ############################### interface ###############################################
-       
+        self.tab1 = Tab1
+        self.tab2 = Tab2      
 
-        self.scopeWidget = scopeWin
-        self.stageWidget = stageWin
-        
-        self.tab2 = Tab2
+        self.scopeWidget = self.tab1.scopeWidget
+        self.stageWidget = self.tab1.stageWidget
+
         
         self.scope2PlotFigure = plt.Figure()
         self.scope2PlotAxis = self.scope2PlotFigure.add_subplot(111, facecolor='k')
@@ -167,7 +169,7 @@ class FeedbackTab(QtWidgets.QWidget):
         self.launch_feedback_btn = QtWidgets.QPushButton("LAUNCH RABBIT \n FEEDBACK", self)
         self.launch_feedback_btn.setMaximumWidth(200)
         self.launch_feedback_btn.setCheckable(True)
-        self.launch_feedback_btn.setIcon(QIcon('lapin.png'))
+        self.launch_feedback_btn.setIcon(QIcon('icon_sirius.png'))
         self.launch_feedback_btn.setIconSize(QtCore.QSize(75,75))
         self.launch_feedback_btn.setFont(QFont('SansSerif', 10))
         
@@ -569,7 +571,7 @@ class FeedbackTab(QtWidgets.QWidget):
     
     
     def lindrift(self, t, t0, drift_speed ):  #in nm
-        return t0 + drift_speed*t 
+        return t0 + (drift_speed/6)*t 
         
     def oscilldrift(self, t, t0, freq, amp):  # in nm
         return t0 + amp*np.sin(2*np.pi*freq*t) 
@@ -690,7 +692,7 @@ class FeedbackTab(QtWidgets.QWidget):
         
         self.error_value = self.x_error_nm - self.offset_error_signal
         
-        print("error value nm = "+str(self.error_value))
+        print("error value  = "+str(self.error_value))
         
         for i in range(2):
             self.E[i] = self.E[i+1]
@@ -708,6 +710,7 @@ class FeedbackTab(QtWidgets.QWidget):
         
         ###############Kp =0.1
         correction = self.U[1]
+        print("command = "+str(correction))
         if abs(self.error_value) > self.max_error:
             print("error too big, didnt move")
         
@@ -724,6 +727,113 @@ class FeedbackTab(QtWidgets.QWidget):
             #print("")
         
             #self.stageWidget.smarActReader.motionEnded.emit()
+            
+            
+            
+            
+            
+            
+            
+            
+    def ForwardFeedback(self, data):
+ 
+        # first check that feedback is possible
+        self.checkFeedback()
+        
+        if self.feedbackStatus == True:
+            
+            print("feedback")
+           
+            self.tab1.setDisabled(True)
+            self.tab2.setDisabled(True)
+            self.locking_position_display.setDisabled(True)
+            
+            #### first go to locking_position ####
+            if self.feedback_time == 0:
+                
+                ########################
+                #self.mutex.lock()
+                ########################
+                #self.stageWidget.smarActReader.motionEnded.connect(self.allowMove)
+                #self.tab1.stageWidget.GotoPositionAbsolute(int(float(self.tab3.locking_position_display.text())))
+                self.stageWidget.PositionNmSpinBox.setValue(int(float(self.locking_position_display.text())))
+                self.stageWidget.PositionFsSpinBox.setValue(self.stageWidget.PositionNmSpinBox.value()/300)
+                print("Aller à la position initiale")
+                #time.sleep(0.5)
+                print("after time.sleep")
+                #print("positionNmLCD = "+str(self.tab1.stageWidget.PositionNmLCD.value()))
+                self.U = [0,0]
+                self.E = [0,0,0]
+                #self.tab3.compensation_shift = int(float(self.tab3.locking_position_display.text()))
+                
+                
+            if self.feedback_time > self.tStart:
+                #print("canMove = "+str(self.canMove))
+                #if self.canMove == True:
+                    
+                
+                if self.launch_feedback_btn.isChecked():
+                    
+                    self.launch_feedback_test_btn.setDisabled(True)
+                    #### performs feedback ####
+                    self.FeedbackStep(data, self.feedback_time, self.tStart)
+                    self.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK ")
+                    self.launch_feedback_btn.setChecked(True)
+                
+                        #self.canMove = False
+                        
+                if self.launch_feedback_test_btn.isChecked():
+                    
+
+                    self.launch_feedback_btn.setDisabled(True)
+                    #### performs test feedback ####
+                    self.FeedbackStepTest(self.feedback_time, self.tStart)
+                    self.launch_feedback_test_btn.setText("STOP TEST \n FEEDBACK ")
+                    self.launch_feedback_test_btn.setChecked(True)
+                
+                        #self.canMove = False
+            
+            #### stores data at each step ####
+            self.storedatafolder = self.storedatafolder_display.text()
+            #write data to file
+            ii = self.feedback_time
+            index = str(ii)
+            index = (4-len(index)) * "0" + index
+            fileName = "FeedbackFile" + index + ".txt"
+           
+    
+            pathFile = os.path.join(self.storedatafolder, fileName)
+            file = open(pathFile,"w")
+            for ii in range(len(data[0])):
+                file.write('%f\t%f\n' % (data[0][ii], data[1][ii]))
+                
+            file.close()
+            self.feedback_time+=1
+           
+           
+        else:
+            self.tab1.setDisabled(False)
+            self.tab2.setDisabled(False)
+            self.locking_position_display.setDisabled(False)
+            
+            # test
+            self.launch_feedback_btn.setDisabled(False)
+            self.launch_feedback_test_btn.setDisabled(False)
+            self.launch_feedback_test_btn.setText("LAUNCH TEST \n FEEDBACK")
+            self.launch_feedback_test_btn.setChecked(False)            
+           
+            self.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
+            self.launch_feedback_btn.setChecked(False)
+            
+            self.feedback_time = 0
+            self.sum_error = 0.
+            self.square_sum = 0.
+            self.list_pos = []
+            self.list_measured_pos = []
+            #self.tab3.compensation_shift = 0.
+        #print("After Display and stabilize")
+        
+        
 
 
 
@@ -793,15 +903,15 @@ class FeedbackTab(QtWidgets.QWidget):
         
 ################################## updates functions ################################################
         
-    def updateFeedbackScreens(self, data, scale_x, scale_y, offset, data_y):
+    def updateFeedbackScreens(self, data, scale_x, scale_y, x_offset, y_offset):
         
        
        
         ########### updates scope screen in tab 3 ################
         self.scope2PlotTrace.set_xdata(data[0])
-        self.scope2PlotTrace.set_ydata(data_y)
-        self.scope2PlotAxis.set_xlim([-5*scale_x, 5*scale_x])
-        self.scope2PlotAxis.set_ylim([-4*scale_y, 4*scale_y])
+        self.scope2PlotTrace.set_ydata(data[1])
+        self.scope2PlotAxis.set_xlim([x_offset, x_offset + 10*scale_x])
+        self.scope2PlotAxis.set_ylim([-4*scale_y + y_offset, 4*scale_y + y_offset])
         self.scope2PlotAxis.grid(True)
         self.scope2PlotAxis.set_ylabel("Tension (V)", fontsize=17)
         self.scope2PlotAxis.set_xlabel("Time (s)", fontsize=17)
@@ -826,8 +936,8 @@ class FeedbackTab(QtWidgets.QWidget):
         
        
         le = len(self.live_time_data)  #size of the window adapted to the period
-        if le*self.T < 50:
-            self.live_time_data.append(self.live_time_data[-1]+self.T)
+        if le < 50:
+            self.live_time_data.append(self.live_time_data[-1]+1.)
             self.live_error_data.append(self.error_value)
             self.live_position_data.append(self.stageWidget.PositionNmLCD.value())
             #
@@ -835,7 +945,7 @@ class FeedbackTab(QtWidgets.QWidget):
            
         else:
             for i in range(le):
-                self.live_time_data[i] += self.T
+                self.live_time_data[i] += self.T*10
             for i in range(le-1):
                 self.live_error_data[i] = self.live_error_data[i+1]
                 self.live_position_data[i] = self.live_position_data[i+1]
@@ -1019,9 +1129,9 @@ class FeedbackTab(QtWidgets.QWidget):
     def errorscope(self):
        d = QtWidgets.QDialog()
        
-       b1 = QtWidgets.QLabel("You are not connected to the scope, you cannot launch active stabilization.", d)
+       b1 = QtWidgets.QLabel("Scope not connected", d)
       
-       d.setFixedWidth(475)
+       d.setFixedWidth(200)
        b1.move(50,50)
        d.setWindowTitle("Error")
        d.setWindowModality(QtCore.Qt.ApplicationModal)
@@ -1056,9 +1166,9 @@ class FeedbackTab(QtWidgets.QWidget):
     def errorstage(self):
        d = QtWidgets.QDialog()
        
-       b1 = QtWidgets.QLabel("You are not connected to the translation stage, you cannot launch active stabilization.", d)
+       b1 = QtWidgets.QLabel("SmarAct not connected", d)
       
-       d.setFixedWidth(475)
+       d.setFixedWidth(200)
        b1.move(50,50)
        d.setWindowTitle("Error")
        d.setWindowModality(QtCore.Qt.ApplicationModal)
