@@ -8,7 +8,7 @@ Created on Fri Apr 12 14:26:17 2019
 """
 Complete integratio of the smaract delay line and the Lecoy waverunner oscilloscope in the RABBIT
 """
-from Scope_f import ScopeWidget, ScopeReader
+
 from SmarAct_f import StageWidget
 import sys
 import os
@@ -105,8 +105,9 @@ class ScanningLoop(QtCore.QObject):
             self.StoreData([])
 
             if not self.run:
-                return
+                break
         self.scanFinished.emit()
+        print("LOOP OUT")
         
     def StoreData(self, data):
         self.data = data

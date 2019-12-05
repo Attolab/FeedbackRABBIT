@@ -7,7 +7,7 @@
 import sys
 import os
 
-import time
+
 
 import PyQt5.QtCore as QtCore
 from PyQt5 import QtWidgets
@@ -18,8 +18,9 @@ from PyQt5.QtGui import QIcon
 import live_win 
 import sidebands_win
 import feedback_win
+import scanStab_win
 from Rabbit_scan import ScanningLoop
-
+from Feedback_loop import FeedbackLoop
 
 
 
@@ -40,13 +41,15 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab1 = live_win.LiveTab()
         self.tab2 = sidebands_win.SidebandsTab()
         self.tab3 = feedback_win.FeedbackTab(self.tab1.scopeWidget, self.tab1.stageWidget, self.tab2)
+        self.tab4 = scanStab_win.scanStabTab(self.tab3)
         
         self.addTab(self.tab1,"Live")
         self.addTab(self.tab2, "Sidebands")
         self.addTab(self.tab3, "Feedback")
+        #self.addTab(self.tab4, "Stab scan")
         
-        self.setWindowTitle("RABBIT feedback")
-        self.setWindowIcon(QIcon("lapin.png") )
+        self.setWindowTitle("RABBIT Active Stabilization")
+        self.setWindowIcon(QIcon("icon_rasta.png") )
         
         self.setGeometry(100, 100, 1510, 1000)
         
@@ -54,6 +57,17 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.mutex = QtCore.QMutex()
         self.smarActStopCondition = QtCore.QWaitCondition()
         
+        self.canMove = False
+        
+
+        
+        self.period = 1. #s, period of the feedback loop
+        self.tStart = int(3/self.period)
+        self.tab3.T = self.period #ins, period in the PID controller       
+        
+        
+        
+        self.tGlob = 0
         
         # prepare the transmission of the data to the graphs (will also be used by the scanning loop)
         self.ConnectDisplay()
@@ -61,9 +75,14 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         # 1) Alow scan control if both scope and stage are running :
         self.tab1.scopeWidget.scopeGroupBox.toggled.connect(self.ActivateDeactivateScan)
         self.tab1.stageWidget.ChannelComboBox.currentIndexChanged.connect(self.ActivateDeactivateScan)
+        self.tab1.scopeWidget.scopeGroupBox.toggled.connect(self.ActivateDeactivateFeedback)
+        self.tab1.stageWidget.ChannelComboBox.currentIndexChanged.connect(self.ActivateDeactivateFeedback)
         # 2) disable controls duing the scan : 
         self.tab1.scanWidget.startScanPushButton.clicked.connect(self.StartStopScan)
+        self.tab3.launch_feedback_btn.clicked.connect(lambda x : self.StartStopFeedback(x, "Feedback"))
+        self.tab3.launch_feedback_test_btn.clicked.connect(lambda x : self.StartStopFeedback(x, "Test Feedback"))        
         
+        self.tab3.stabScanBtnClicked.connect(lambda x : self.StartStopFeedback(x, "Test Feedback"))
         
         self.show()
         
@@ -74,257 +93,25 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     def DisplayAndStabilize(self, data):  #updates the scope windows (scope 1, scope 2, time error plot and time delay position) and performs feedback
         scale_y=self.tab1.scopeWidget.YScale
         scale_x=self.tab1.scopeWidget.XScale
-        offset=self.tab1.scopeWidget.YOffset
+        y_offset = self.tab1.scopeWidget.YOffset
+        x_offset = self.tab1.scopeWidget.XOffset
         
-        data_y=[]
-        for i in range(len(data[1])):
-            data_y.append(data[1][i]-offset)
-            
-            
-            
-            
+
         ########### updates scope screen in tab 1 ################
-        self.tab1.scopePlotTrace.set_xdata(data[0])
-        self.tab1.scopePlotTrace.set_ydata(data_y)
-        self.tab1.scopePlotAxis.set_xlim([-5*scale_x, 5*scale_x])
-        self.tab1.scopePlotAxis.set_ylim([-4*scale_y, 4*scale_y])
-        self.tab1.scopePlotAxis.grid(True)
-        self.tab1.scopePlotAxis.set_ylabel("Tension (V)", fontsize=17)
-        self.tab1.scopePlotAxis.set_xlabel("Time (s)", fontsize=17)
-       
-        self.tab1.scopePlotCanvas.draw()
-       
-       
-        ########### updates scope screen in tab 3 ################
-        self.tab3.scope2PlotTrace.set_xdata(data[0])
-        self.tab3.scope2PlotTrace.set_ydata(data_y)
-        self.tab3.scope2PlotAxis.set_xlim([-5*scale_x, 5*scale_x])
-        self.tab3.scope2PlotAxis.set_ylim([-4*scale_y, 4*scale_y])
-        self.tab3.scope2PlotAxis.grid(True)
-        self.tab3.scope2PlotAxis.set_ylabel("Tension (V)", fontsize=17)
-        self.tab3.scope2PlotAxis.set_xlabel("Time (s)", fontsize=17)
-       
-        if len(self.tab2.SB_vector_int)==6:
-            for i in range(6):
-                self.tab3.scope2PlotAxis.axvline(x=self.SB_vector_int[i],color='yellow')
-           
-       
-        self.tab3.scope2PlotCanvas.draw()
-       
+        self.tab1.updateLiveScreen(data, scale_x, scale_y, x_offset, y_offset)
         
-        ########### updates position and error screens in tab 3 ################
-       
-        self.tab3.time_errorPlotAxis.set_ylim([-100,100])
-        self.tab3.time_positionPlotAxis.set_ylim([-100,100])
-       
+        ########### updates screens in tab 3 ################
 
-       
-        le = len(self.tab3.live_time_data)
-        if le<50:
-            self.tab3.live_time_data.append(self.tab3.live_time_data[-1]+1)
-            self.tab3.live_error_data.append(self.tab3.x_error_nm)
-            self.tab3.live_position_data.append(self.tab1.stageWidget.PositionNmLCD.value())
-            #
-            #self.tab3.live_position_data.append(self.tab3.currentPos)
-           
-        else:
-            for i in range(le):
-                self.tab3.live_time_data[i]+=1
-            for i in range(le-1):
-                self.tab3.live_error_data[i] = self.tab3.live_error_data[i+1]
-                self.tab3.live_position_data[i] = self.tab3.live_position_data[i+1]
-               
-            self.tab3.live_error_data[-1] = self.tab3.x_error_nm
-            self.tab3.live_position_data[-1] = self.tab3.stageWidget.PositionNmLCD.value()
-            #self.tab3.live_position_data[-1] = self.tab3.currentPos
-           
-           
-           
-        self.tab3.time_errorPlotTrace.set_xdata(self.tab3.live_time_data)
-        self.tab3.time_errorPlotTrace.set_ydata(self.tab3.live_error_data)
-       
-        self.tab3.time_errorPlotAxis.set_xlim([self.tab3.live_time_data[0], self.tab3.live_time_data[-1]])
-        #self.tab3.time_errorPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_error_data), min(self.tab3.live_error_data)), 1.1*max(max(self.tab3.live_error_data), -min(self.tab3.live_error_data))])
-        Min = min(self.tab3.live_error_data)
-        Max = max(self.tab3.live_error_data)
-        y_min = 0
-        y_max = 0
-        if Min>0:
-            y_min = 0.99*Min
-        else:
-           y_min = 1.01*Min
-        if Max>0:
-            y_max = 1.01*Max
-        else:
-            y_max = 0.99*Max
-        
-        self.tab3.time_errorPlotAxis.set_ylim([y_min, y_max])
-        
-        
-        
-        self.tab3.time_errorPlotAxis.grid(True)
-        self.tab3.time_errorPlotAxis.set_ylabel("Error (nm)", fontsize=7)
-        self.tab3.time_errorPlotAxis.set_xlabel("Time (step)", fontsize=7)
-       
-        self.tab3.time_errorPlotCanvas.draw()
-       
-           
-       
-        self.tab3.time_positionPlotTrace.set_xdata(self.tab3.live_time_data)
-        self.tab3.time_positionPlotTrace.set_ydata(self.tab3.live_position_data)
-        self.tab3.time_positionPlotAxis.set_xlim([self.tab3.live_time_data[0], self.tab3.live_time_data[-1]])
-        #self.tab3.time_positionPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_position_data), min(self.tab3.live_position_data)), 1.1*max(max(self.tab3.live_position_data), -min(self.tab3.live_position_data))])
-        Min2 = min(self.tab3.live_position_data)
-        Max2 = max(self.tab3.live_position_data)
-        y_min2 = 0
-        y_max2 = 0
-        if Min2>0:
-            y_min2 = 0.99*Min2
-        else:
-           y_min2 = 1.01*Min2
-        if Max2>0:
-            y_max2 = 1.01*Max2
-        else:
-            y_max2 = 0.99*Max2
-        
-        self.tab3.time_positionPlotAxis.set_ylim([y_min2, y_max2])
-        
-        
-        
-        
-        
-        self.tab3.time_positionPlotAxis.grid(True)
-        self.tab3.time_positionPlotAxis.set_ylabel("Delay line position (nm)", fontsize=7)
-        self.tab3.time_positionPlotAxis.set_xlabel("Time (step)", fontsize=7)
-       
-        self.tab3.time_positionPlotCanvas.draw()
-       
-      
-        ################## performs feedback #################
-       
-        # first check that feedback is possible
-        self.tab3.checkFeedback()
-       
-        if self.tab3.feedbackStatus == True:
-           
-            self.tab1.setDisabled(True)
-            self.tab2.setDisabled(True)
-            self.tab3.locking_position_display.setDisabled(True)
-            
-            #### first go to locking_position ####
-            if self.tab3.feedback_time == 0:
-                
-                ########################
-                #self.mutex.lock()
-                ########################
-                
-                #self.tab1.stageWidget.GotoPositionAbsolute(int(float(self.tab3.locking_position_display.text())))
-                self.tab1.stageWidget.PositionNmSpinBox.setValue(int(float(self.tab3.locking_position_display.text())))
-                self.tab1.stageWidget.PositionFsSpinBox.setValue(self.tab1.stageWidget.PositionNmSpinBox.value()/300)
-                print("Aller à la position initiale")
-                time.sleep(1.)
-                print("after time.sleep")
-                print("positionNmLCD = "+str(self.tab1.stageWidget.PositionNmLCD.value()))
-                self.tab3.U = [0,0]
-                self.tab3.E = [0,0,0]
-                #self.tab3.compensation_shift = int(float(self.tab3.locking_position_display.text()))
-                
-                #############################################
-                #self.smarActStopCondition.wait(self.mutex)
-                #self.mutex.unlock()
-                #############################################
-                
-                
-                #self.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(x))
-                
-                '''
-                
-                
-                self.mutex.lock()
-                initial_distance = float(self.tab3.locking_position_display.text()) - self.tab1.stageWidget.PositionNmLCD.value()
-                self.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(x))
-                self.tab1.stageWidget.smarActReader.motionEnded.connect(self.smarActStopCondition.wakeAll)
-                self.requestMotion.emit(int(initial_distance))
-                print("after request motion")
-                self.smarActStopCondition.wait(self.mutex)
-                print("after .wait")
-                self.mutex.unlock()
-                '''
-                
-                
-                
-                
-            if self.tab3.feedback_time > 0:
-                
-                if self.tab3.launch_feedback_btn.isChecked():
-                    
-                    self.tab3.launch_feedback_test_btn.setDisabled(True)
-                    #### performs feedback ####
-                    self.tab3.FeedbackStep(data, self.tab3.feedback_time)
-                    self.tab3.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK ")
-                    self.tab3.launch_feedback_btn.setChecked(True)
-                
-                if self.tab3.launch_feedback_test_btn.isChecked():
-                    
+        print("")
+        print("DISPLAY")
+        print("")
+        #if self.tGlob%1 == 0: #☻doesnt update all the time during feedback
+        self.tab3.updateFeedbackScreens(data, scale_x, scale_y, x_offset, y_offset)
 
-                    
-                    self.tab3.launch_feedback_btn.setDisabled(True)
-                    #### performs test feedback ####
-                    self.tab3.FeedbackStepTest(self.tab3.feedback_time)
-                    self.tab3.launch_feedback_test_btn.setText("STOP TEST \n FEEDBACK ")
-                    self.tab3.launch_feedback_test_btn.setChecked(True)
-                
-                
-            
-            #### stores data at each step ####
-            self.tab3.storedatafolder = self.tab3.storedatafolder_display.text()
-            #write data to file
-            ii = self.tab3.feedback_time
-            index = str(ii)
-            index = (4-len(index)) * "0" + index
-            fileName = "FeedbackFile" + index + ".txt"
-           
+        self.tGlob += 1
+
     
-            pathFile = os.path.join(self.tab3.storedatafolder, fileName)
-            file = open(pathFile,"w")
-            for ii in range(len(data[0])):
-                file.write('%f\t%f\n' % (data[0][ii], data_y[ii]))
-                
-            file.close()
-            self.tab3.feedback_time+=1
-           
-           
-        else:
-            self.tab1.setDisabled(False)
-            self.tab2.setDisabled(False)
-            self.tab3.locking_position_display.setDisabled(False)
-            
-            # test
-            self.tab3.launch_feedback_btn.setDisabled(False)
-            self.tab3.launch_feedback_test_btn.setDisabled(False)
-            self.tab3.launch_feedback_test_btn.setText("LAUNCH TEST \n FEEDBACK")
-            self.tab3.launch_feedback_test_btn.setChecked(False)            
-           
-            self.tab3.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
-            self.tab3.launch_feedback_btn.setChecked(False)
-            
-            self.tab3.feedback_time = 0
-            self.tab3.sum_error = 0.
-            self.tab3.square_sum = 0.
-            self.tab3.list_pos = []
-            self.tab3.list_measured_pos = []
-            #self.tab3.compensation_shift = 0.
-        #print("After Display and stabilize")
-        
-        
-
-
-
-    def Print(self):
-        print("motion ended signal received")
-        
-        
-        
+  
     ################################## RABBIT scan ############################################
         
     def ActivateDeactivateScan(self):
@@ -351,13 +138,21 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         return "Proceed"
                 
     def ForwardData(self, data):
+        print("forwarddata")
         if self.tab1.scanWidget.startScanPushButton.isChecked():
             # during a scan : transmit the data to the scanningLoop object and disable the conection to prevent multiple acquisition at a single delay
             self.tab1.scopeWidget.emitData.disconnect()
             self.scanningLoop.StoreData(data)
+        
+        if self.tab3.launch_feedback_btn.isChecked():
+            self.tab1.scopeWidget.emitData.disconnect()
+            self.feedbackLoop.StoreData(data)
+        if self.tab3.launch_feedback_test_btn.isChecked():
+
+            self.tab1.scopeWidget.emitData.disconnect()
+            self.feedbackLoop.StoreData(data)
+            print("feedback data stored")
         # send data to graphs
-        
-        
         self.DisplayAndStabilize(data)
      
     
@@ -415,7 +210,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             
             #generates bug
             '''
-            # wait for the thread exit before going on :
+            #wait for the thread exit before going on :
             while self.scanningThread.isRunning():
                 self.thread().msleep(100)
             '''
@@ -432,6 +227,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     def ConnectScanSignals(self):
         self.scanningLoop.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(self.tab1.stageWidget.PositionNmSpinBox.value() + x))
         self.tab1.stageWidget.smarActReader.motionEnded.connect(self.scanningLoop.smarActStopCondition.wakeAll)
+        
         # Allow the scanningLoop to set the scope trigger mode
         #self.scanningLoop.setScopeMode.connect(self.scopeWidget.triggerModeComboBox.setCurrentIndex)
         # Allow the scanningLoop to clear the scope memory after motion :
@@ -440,14 +236,15 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.scanningThread.started.connect(self.scanningLoop.Run)
         # connect the scanningLoop 
         self.scanningLoop.requestEmitDataReconnection.connect(self.ConnectDisplay)
+        #self.tab3.feedbackLoop.requestEmitDataReconnection.connect(self.ConnectDisplay)        
         # ... and wait for the end of the scan :
         self.scanningLoop.scanFinished.connect(self.EndOfScan)
     
     
     def ConnectDisplay(self):
-        print('a')
+        print('connect display')
         self.tab1.scopeWidget.emitData.connect(self.ForwardData)
-        print('b')
+        #print('')
         
     def DisconnectScanSignals(self):
         self.scanningLoop.requestMotion.disconnect()
@@ -456,10 +253,13 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.scanningThread.started.disconnect()
         self.scanningLoop.scanFinished.disconnect()
         self.ConnectDisplay()
+        
+        
+        
     
     def closeEvent(self, event):
         reply = QtWidgets.QMessageBox.question(self, 'Message',
-            "Are you sure to quit?", QtWidgets.QMessageBox.Yes | 
+            "Do you really want to close the program?", QtWidgets.QMessageBox.Yes | 
             QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
     
         if reply == QtWidgets.QMessageBox.Yes:
@@ -474,9 +274,172 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             QtCore.QCoreApplication.instance().quit
         else:
             event.ignore()      
-            
+     
+
+
+
+
+
+
+
+    ################################ feedback #############################
     
+    
+    
+    def ActivateDeactivateFeedback(self):
+        # enable/diable the "start scan" button ont he scan widget depending on the other widgets states 
+        scopeOn = self.tab1.scopeWidget.scopeGroupBox.isChecked()
+        stageOn = self.tab1.stageWidget.ChannelComboBox.currentIndex()>0
+        if scopeOn and stageOn:
+            self.tab3.launch_feedback_btn.setEnabled(True)
+            self.tab3.launch_feedback_test_btn.setEnabled(True)
+            #self.scanWidget.scanGroupBox.setEnabled(True)
+        else:
+            self.tab3.launch_feedback_test_btn.setEnabled(False)
+            #self.scanWidget.scanGroupBox.setEnabled(False)
+    
+    def CheckDataFolderExsitance(self):
+        folderName = self.tab3.storedatafolder_display.text()
+        if not os.path.exists(folderName):
+            reply = QtWidgets.QMessageBox.question(self, "Message",
+                                                   "The specified data folder does NOT exist. Do you want to create it?", QtWidgets.QMessageBox.Yes | 
+                                                   QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+            if reply == QtWidgets.QMessageBox.Yes:
+                os.makedirs(folderName)
+            else:
+                return "Cancel feedback"
+        return "Proceed"
+    
+    
+    ################## ForwardData in Rabbit_feedback_main
+
+
+    def StartStopFeedback(self, feedbackStatus, mode):
+        print("STARTSTOPFEEDBACK")
         
+        if feedbackStatus:
+            self.CheckDataFolderExsitance()
+            # block interaction with the controls
+            if mode == "Feedback":
+                self.tab3.launch_feedback_btn.setText("STOP RABBIT \n FEEDBACK")
+            if mode == "Test Feedback":
+                self.tab3.launch_feedback_test_btn.setText("STOP RABBIT \n FEEDBACK TEST")
+            self.tab2.setEnabled(False)
+            self.tab1.scopeWidget.setEnabled(False)
+            self.tab1.stageWidget.setEnabled(False)
+            # Reinitialize the matshow display
+            # stop the scope trigger and clear the scope memory
+            #self.scopeWidget.triggerModeComboBox.setCurrentIndex(3)
+            self.tab1.scopeWidget.ClearSweeps()
+            # create a scanning loop
+            self.tab3.SBParam = [self.tab2.O1, self.tab2.O2,  self.tab2.A1, self.tab2.A1, self.tab2.phi1, self.tab2.phi2]
+            self.tab3.a = self.tab2.param_lin[0]/self.tab2.scan_step
+            
+            self.tab3.Kp = float(self.tab3.Kp_display.text())
+            self.tab3.Ki = float(self.tab3.Ki_display.text())
+            self.tab3.Kd = float(self.tab3.Kd_display.text())
+        
+        
+            self.tab3.PIDParam = [self.tab3.Kp, self.tab3.Ki, self.tab3.Kd, self.tab3.T]
+            
+            # parameters: mode, tab3, lockingPos, SB_vector_int, BG_vector_int, SBParam, a, maxError, PIDParam, folder, tMax, feedbackNbr, errorValue
+            self.feedbackLoop  = FeedbackLoop(mode, 
+                                             self.tab3, 
+                                             self.tab1.stageWidget.PositionNmLCD.intValue(),
+                                             float(self.tab3.locking_position_display.text()),
+                                             self.tab2.SB_vector_int,
+                                             self.tab2.BG_vector_int,
+                                             self.tab3.SBParam,
+                                             self.tab3.a,
+                                             float(self.tab3.max_error_display.text()),
+                                             self.tab3.PIDParam,
+                                             self.tab3.storedatafolder,
+                                             self.tab3.tMax,
+                                             self.tab3.feedbackNbr,
+                                             self.tab3.errorValue)
+
+            # create and start the scanning thread
+            self.feedbackThread = QtCore.QThread()
+            self.feedbackLoop.moveToThread(self.feedbackThread)
+            self.ConnectFeedbackSignals()
+            print("feedback thread start")
+            self.feedbackThread.start()
+
+        else:
+            reply = QtWidgets.QMessageBox.question(self, 'Message', "Do you want to stop the feedback?",
+                                                   QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+            if reply == QtWidgets.QMessageBox.Yes:
+                self.feedbackLoop.Stop()
+                print("after stop feedback loop")
+                self.EndOfFeedback()
+
+
+    def EndOfFeedback(self):
+        feedbackStatus = self.DisconnectFeedbackSignals()
+        if feedbackStatus != "Cancel feedback":
+            # Make sure that the startScanPushButton of the scanWidget return to the False state
+            self.tab3.launch_feedback_btn.blockSignals(True)
+            self.tab3.launch_feedback_btn.setChecked(False)
+            self.tab3.launch_feedback_btn.blockSignals(False)
+            
+            self.tab3.launch_feedback_test_btn.blockSignals(True)
+            self.tab3.launch_feedback_test_btn.setChecked(False)
+            self.tab3.launch_feedback_test_btn.blockSignals(False)
+            
+            
+            self.feedbackThread.exit()
+            print("exit feedbackThread")
+            # wait for the thread exit before going on :
+            '''
+            while self.feedbackThread.isRunning():
+                print("waiting 2")
+                self.thread().msleep(25)
+                '''
+        
+        #reenable the user inteface
+        self.tab3.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")
+        self.tab3.launch_feedback_test_btn.setText("LAUNCH RABBIT \n FEEDBACK TEST")
+        #self.scanWidget.scanGroupBox.setEnabled(True)
+        self.tab1.scopeWidget.setEnabled(True)
+        self.tab1.stageWidget.setEnabled(True)
+        self.tab3.feedbackNbr += 1
+        
+        # for stabilized scan: send signal when the feedback is over
+        
+        self.tab3.stepOfStabScanFinished.emit()
+        print("stepOfStabScanFinished emitted")
+
+
+    def ConnectFeedbackSignals(self):
+        self.feedbackLoop.requestFeedbackMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(int(self.tab1.stageWidget.PositionNmLCD.value() + x)))
+        self.tab1.stageWidget.smarActReader.motionEnded.connect(self.feedbackLoop.smarActStopCondition.wakeAll)
+        # Allow the scanningLoop to set the scope trigger mode
+        #self.scanningLoop.setScopeMode.connect(self.scopeWidget.triggerModeComboBox.setCurrentIndex)
+        # Allow the scanningLoop to clear the scope memory after motion :
+        self.feedbackLoop.requestScopeMemoryClear.connect(self.tab1.scopeWidget.ClearSweeps)
+        # connect the scanning loop Run function to the scanning thread start
+        self.feedbackThread.started.connect(self.feedbackLoop.Run)
+        # connect the scanningLoop 
+        self.feedbackLoop.requestEmitDataReconnection.connect(self.ConnectDisplay)
+        # ... and wait for the end of the scan :
+        self.feedbackLoop.feedbackFinished.connect(self.EndOfFeedback)
+
+
+
+    def DisconnectFeedbackSignals(self):
+        print("disconnect feedback signals")
+        self.feedbackLoop.requestFeedbackMotion.disconnect()
+        self.tab1.stageWidget.smarActReader.motionEnded.disconnect()
+        self.feedbackLoop.requestScopeMemoryClear.disconnect()
+        self.feedbackThread.started.disconnect()
+        self.feedbackLoop.feedbackFinished.disconnect()
+        self.ConnectDisplay()
+
+
+
+
+
+
      
 def main():
    

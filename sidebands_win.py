@@ -52,6 +52,7 @@ class SidebandsTab(QtWidgets.QWidget):
         self.SB_vector_int = []  #sidebands positions on the scan array (integers, in scan steps)
         self.supSB_vector_int = []  #additional sidebands positions on the scan array
         self.BG_vector = []   #background band vectorthat will be substracted from sidebands
+        self.BG_vector_int = []
         
         self.int_SB1 = []  #list of values corresponding to the sideband integrated over its width
         self.int_SB2 = []
@@ -135,6 +136,8 @@ class SidebandsTab(QtWidgets.QWidget):
         self.importdata_btn.clicked.connect(self.import_scan)
         self.importdata_btn.setMaximumWidth(130)
         
+        
+        '''
         self.SBCheckBox = QtWidgets.QCheckBox("Select 2 SB in phase quad.")
         self.supSBCheckBox = QtWidgets.QCheckBox("Select additional SB")
         self.BGCheckBox = QtWidgets.QCheckBox("Select background band")
@@ -142,11 +145,12 @@ class SidebandsTab(QtWidgets.QWidget):
         self.SBCheckBox.stateChanged.connect(lambda: self.exclusive(self.SBCheckBox, self.supSBCheckBox, self.BGCheckBox))
         self.supSBCheckBox.stateChanged.connect(lambda: self.exclusive(self.supSBCheckBox, self.SBCheckBox, self.BGCheckBox))
         self.BGCheckBox.stateChanged.connect(lambda: self.exclusive(self.BGCheckBox, self.SBCheckBox, self.supSBCheckBox))
-        
+        '''
         
         self.SB_plot_btn = QtWidgets.QPushButton("Plot sidebands", self)
         self.SB_plot_btn.clicked.connect(self.SBPlotDraw)
         self.SB_plot_btn.setMaximumWidth(90)
+        self.SB_plot_btn.setStyleSheet("background-color: Green")  
         
         
         self.horizontal_plot_btn = QtWidgets.QPushButton("Plot horizontal cross-section", self)
@@ -157,6 +161,7 @@ class SidebandsTab(QtWidgets.QWidget):
         self.error_plot_btn = QtWidgets.QPushButton("Plot error signal", self)
         self.error_plot_btn.clicked.connect(self.errorPlotDraw)
         self.error_plot_btn.setMaximumWidth(100)
+        self.error_plot_btn.setStyleSheet("background-color: Green")
         
         
         self.O1_display = QtWidgets.QLineEdit("{:.2f}".format(self.O1), self)
@@ -173,9 +178,9 @@ class SidebandsTab(QtWidgets.QWidget):
         small_layout.addWidget(self.importdata_btn)
         small_layout.addWidget(QtWidgets.QLabel("Scan step (nm)"))
         small_layout.addWidget(self.step_display)
-        small_layout.addWidget(self.SBCheckBox)
-        small_layout.addWidget(self.supSBCheckBox)
-        small_layout.addWidget(self.BGCheckBox)
+        #small_layout.addWidget(self.SBCheckBox)
+        #small_layout.addWidget(self.supSBCheckBox)
+        #small_layout.addWidget(self.BGCheckBox)
         small_layout.addStretch(10)
         #small_layout.setContentsMargins(100,300,100,300)
         small_layout.setSpacing(10)
@@ -270,11 +275,12 @@ class SidebandsTab(QtWidgets.QWidget):
             self.scanPlotCanvas.mpl_connect('button_press_event', self.onclick)
             
             
-            
+    '''        
     def exclusive(self, clickedbox, box2, box3):
         if clickedbox.isChecked():
             box2.setChecked(False)
             box3.setChecked(False)
+    '''
       
     def onclick(self, event):
         
