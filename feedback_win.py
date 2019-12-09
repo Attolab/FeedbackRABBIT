@@ -23,8 +23,11 @@ class FeedbackTab(QtWidgets.QWidget):
     
     stabScanBtnClicked = QtCore.pyqtSignal(bool)
     
+    testStabScanBtnClicked = QtCore.pyqtSignal(bool)
+    
     stepOfStabScanFinished = QtCore.pyqtSignal()
     
+    stepPercentSignal = QtCore.pyqtSignal(int)
     
     
     def __init__(self,  scopeWin, stageWin, Tab2):
@@ -327,7 +330,7 @@ class FeedbackTab(QtWidgets.QWidget):
         self.test_stab_scan_btn.setMaximumWidth(200)
         self.test_stab_scan_btn.setCheckable(True)    
         self.stab_scan_btn.setFont(QFont('SansSerif', 9))  
-        
+        self.test_stab_scan_btn.clicked.connect(self.onClick_test_stab_scan)        
         #color = QColor(0, 0, 255, 127)
         #color.setNamedColor("transparent blue")
         
@@ -747,14 +750,56 @@ class FeedbackTab(QtWidgets.QWidget):
             self.errorerrorsignal()
             return
     
-        stab_scan_widget = Rabbit_scan_stab.ScanStabWidget(self)
+        stab_scan_widget = Rabbit_scan_stab.ScanStabWidget(self, "scan stab")
+        stab_scan_widget.mvtTypeComboBox.addItem("Forward") #impossible to put this command in the scan ui file, I don't know why
+        stab_scan_widget.mvtTypeComboBox.addItem("Backward")
+        
+        dialog = QtWidgets.QDialog()
+        
+        box = QtWidgets.QHBoxLayout()
+        
+       
+        winLayout=QtWidgets.QVBoxLayout()
+        winLayout.addWidget(stab_scan_widget)
+        
+        box.addLayout(winLayout)
+        #box.addWidget(self.scopePlotCanvas)
+       
+      
+        dialog.setLayout(box)
+        dialog.setWindowModality(1)
+        dialog.exec_()
+        
+        
+        
+    def onClick_test_stab_scan(self):
+        #self.stab_scan_btn.setChecked(False)
+        self.test_stab_scan_btn.setChecked(False)
+        
+        if not self.scopeWidget.scopeGroupBox.isChecked():
+            self.errorscope()
+            return
+        
+        if not self.stageWidget.ChannelComboBox.currentIndex()>0:
+            self.errorstage()
+            return
+        
+        if len(self.tab2.param_lin) == 0:
+            self.errorerrorsignal()
+            return
+    
+        test_stab_scan_widget = Rabbit_scan_stab.ScanStabWidget(self, "test scan stab")
+        test_stab_scan_widget.titleLabel.setText("Test Stab Scan")
+        test_stab_scan_widget.mvtTypeComboBox.addItem("Forward") #impossible to put this command in the scan ui file, I don't know why
+        test_stab_scan_widget.mvtTypeComboBox.addItem("Backward")
+        
         dialog = QtWidgets.QDialog()
         
         box = QtWidgets.QHBoxLayout()
        
        
         winLayout=QtWidgets.QVBoxLayout()
-        winLayout.addWidget(stab_scan_widget)
+        winLayout.addWidget(test_stab_scan_widget)
         
         box.addLayout(winLayout)
         #box.addWidget(self.scopePlotCanvas)

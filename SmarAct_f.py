@@ -227,7 +227,7 @@ class SmarActReader(QtCore.QObject):
                 
             elif self.struct.packetType == 4: 
                 code = self.struct.data1
-                print("smaract status code = "+str(code))
+                #print("smaract status code = "+str(code))
                 if code == 3 or code == 0:
                     self.motionEnded.emit()
                     print("motionEnded emitted by SMARACT")   

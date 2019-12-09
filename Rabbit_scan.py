@@ -59,25 +59,31 @@ class ScanningLoop(QtCore.QObject):
         # move to the intial position and wait until initial position is reached
         print("begin Run")
         self.mutex.lock()
-        print("after mutex lock")
+        #print("after mutex lock")
         self.requestMotion.emit(self.moveTo)
-        print("after request motion")
+        #print("after request motion")
         self.smarActStopCondition.wait(self.mutex)
-        print("after smaractstopcondition wait")
+        #print("after smaractstopcondition wait")
         self.mutex.unlock()
-        print("after unlock mutex")
+        #print("after unlock mutex")
         for ii in range(self.nbrOfPoints):
 #            # clear scope memory
 #            print('clear memory')
 #            self.requestScopeMemoryClear.emit()
             
             # freeze this loop while the stage is not at destination :
-            print('start motion')
+            
+            if not self.run:
+                print("BREAK LOOP")
+                break
+                
+            print("")
+            print('start scan step')
             self.mutex.lock()
-            print("loop")
+            #print("loop")
             self.requestMotion.emit(self.step)
             self.smarActStopCondition.wait(self.mutex)
-            print("after .wait in scan")
+            #print("after .wait in scan")
             self.mutex.unlock()
             
             # allow data emition fro mthe scopeWidget
@@ -86,26 +92,34 @@ class ScanningLoop(QtCore.QObject):
             self.setScopeMode.emit(0)
             
             # read scope
-            print('Waiting')
-            while self.data == []:
-                self.thread().msleep(500)
             
+            while self.data == []:
+                self.thread().msleep(100)
+                print('Waiting data')
+                if not self.run:
+                    print("BREAK LOOP data")
+                    break
+
             self.requestScopeMemoryClear.emit()
             
+            
+            if self.run:
             #write data to file
-            index = str(ii)
-            index = (4-len(index)) * "0" + index
-            fileName = "ScanFile" + index + ".txt"
-
-            pathFile = os.path.join(self.folder, fileName)
-            file = open(pathFile,"w")
-            for ii in range(len(self.data[0])):
-                file.write('%f\t%f\n' % (self.data[0][ii], self.data[1][ii]))
-            file.close()
+                index = str(ii)
+                index = (4-len(index)) * "0" + index
+                fileName = "ScanFile" + index + ".txt"
+    
+                pathFile = os.path.join(self.folder, fileName)
+                file = open(pathFile,"w")
+                for ii in range(len(self.data[0])):
+                    file.write('%f\t%f\n' % (self.data[0][ii], self.data[1][ii]))
+                file.close()
             self.StoreData([])
-
+            '''
             if not self.run:
-                break
+                print("BREAK LOOP")
+                break            
+                '''
         self.scanFinished.emit()
         print("LOOP OUT")
         
@@ -117,6 +131,7 @@ class ScanningLoop(QtCore.QObject):
 
         
     def Stop(self):
+        print("1. Stop scanning loop")
         self.run = False
             
 
@@ -351,16 +366,17 @@ class RabbitMainWindow(QtWidgets.QMainWindow):
             self.scanWidget.startScanPushButton.blockSignals(False)
             
             self.scanningThread.exit()
-            print("exit scanningThread")
+            print("2. exit scanningThread")
             # wait for the thread exit before going on :
             while self.scanningThread.isRunning():
                 self.thread().msleep(100)
+                print("3. Wait for thread to exit")
         #reenable the user inteface
         self.scanWidget.startScanPushButton.setText("Start Scan")
         self.scanWidget.scanGroupBox.setEnabled(True)
         self.scopeWidget.setEnabled(True)
         self.stageWidget.setEnabled(True)
-
+        print("4. reenables buttons")
 
     def ConnectScanSignals(self):
         self.scanningLoop.requestMotion.connect(lambda x : self.stageWidget.PositionNmSpinBox.setValue(self.stageWidget.PositionNmSpinBox.value() + x))

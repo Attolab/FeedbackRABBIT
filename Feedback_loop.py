@@ -101,12 +101,14 @@ class FeedbackLoop(QtCore.QObject):
             print("RUN = ", self.run)
             
             if not self.run:
-                self.StoreData([])
-                print("not self.run")
+                #self.StoreData([])
+                #print("not self.run")
                 break
             
             print("feedback time = "+str(self.tab3.feedback_time))
             
+            
+            self.tab3.stepPercentSignal.emit(self.tab3.feedback_time)
             #print("mode = " +str(self.mode))
 #            # clear scope memory
 #            print('clear memory')
@@ -122,7 +124,7 @@ class FeedbackLoop(QtCore.QObject):
             # read scope 
             
             while self.data == []:
-                #print("waiting 1")
+                print("waiting 1")
                 self.thread().msleep(100)
                 if not self.run:
                     break
@@ -142,7 +144,6 @@ class FeedbackLoop(QtCore.QObject):
                            
                 Dphi = self.Arctoperator(V1, V2, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])            
             
-                ################## calculates command ###############
                 
                 
             if self.mode == "Test Feedback":
@@ -185,6 +186,8 @@ class FeedbackLoop(QtCore.QObject):
             print("error value = "+str(self.errorValue))
             #self.thread().msleep(1000)
             
+            
+            ################## calculates command ###############            
             for i in range(2):
                 self.E[i] = self.E[i+1]
             self.E[2] = self.tab3.errorValue
@@ -224,26 +227,26 @@ class FeedbackLoop(QtCore.QObject):
             ################ writes data in file  ###############
             #print("writes data")
             
-        
-            #write data to file
-            
-            index = str(ii)
-            index = (4-len(index)) * "0" + index
-            fileName = "Feedback" + str(self.feedbackNbr) + "File" + index + ".txt"
-
-            pathFile = os.path.join(self.folder, fileName)
-            file = open(pathFile,"w")
-            
-            file.write("Feedback time = "+str(ii)+"\n")
-            file.write("Stage position (nm) = "+str(smarActPos)+"\n")
-            file.write("Error value (nm) = "+str(self.tab3.errorValue)+"\n")
-            file.write("Kp, Ki, Kd = "+str(self.PIDParam[0])+", "+str(self.PIDParam[1])+", "+str(self.PIDParam[2])+"\n")
-            x = datetime.datetime.now()
-            file.write("Date and time = "+str(x)+"\n")            
-            
-            for pp in range(len(self.data[0])):
-                file.write('%f\t%f\n' % (self.data[0][pp], self.data[1][pp]))
-            file.close()
+            if self.run:       
+            #write data in file
+           
+                index = str(ii)
+                index = (4-len(index)) * "0" + index
+                fileName = "Feedback" + str(self.feedbackNbr) + "File" + index + ".txt"
+    
+                pathFile = os.path.join(self.folder, fileName)
+                file = open(pathFile,"w")
+                
+                file.write("Feedback time = "+str(ii)+"\n")
+                file.write("Stage position (nm) = "+str(smarActPos)+"\n")
+                file.write("Error value (nm) = "+str(self.tab3.errorValue)+"\n")
+                file.write("Kp, Ki, Kd = "+str(self.PIDParam[0])+", "+str(self.PIDParam[1])+", "+str(self.PIDParam[2])+"\n")
+                x = datetime.datetime.now()
+                file.write("Date and time = "+str(x)+"\n")            
+                
+                for pp in range(len(self.data[0])):
+                    file.write('%f\t%f\n' % (self.data[0][pp], self.data[1][pp]))
+                file.close()
             self.StoreData([])
             #print("after write data")
             

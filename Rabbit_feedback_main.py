@@ -18,7 +18,7 @@ from PyQt5.QtGui import QIcon
 import live_win 
 import sidebands_win
 import feedback_win
-import scanStab_win
+#import scanStab_win
 from Rabbit_scan import ScanningLoop
 from Feedback_loop import FeedbackLoop
 
@@ -41,7 +41,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab1 = live_win.LiveTab()
         self.tab2 = sidebands_win.SidebandsTab()
         self.tab3 = feedback_win.FeedbackTab(self.tab1.scopeWidget, self.tab1.stageWidget, self.tab2)
-        self.tab4 = scanStab_win.scanStabTab(self.tab3)
+        #self.tab4 = scanStab_win.scanStabTab(self.tab3)
         
         self.addTab(self.tab1,"Live")
         self.addTab(self.tab2, "Sidebands")
@@ -82,7 +82,8 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab3.launch_feedback_btn.clicked.connect(lambda x : self.StartStopFeedback(x, "Feedback"))
         self.tab3.launch_feedback_test_btn.clicked.connect(lambda x : self.StartStopFeedback(x, "Test Feedback"))        
         
-        self.tab3.stabScanBtnClicked.connect(lambda x : self.StartStopFeedback(x, "Test Feedback"))
+        self.tab3.testStabScanBtnClicked.connect(lambda x : self.StartStopFeedback(x, "Test Feedback"))
+        self.tab3.stabScanBtnClicked.connect(lambda x : self.StartStopFeedback(x, "Feedback"))
         
         self.show()
         
@@ -138,7 +139,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         return "Proceed"
                 
     def ForwardData(self, data):
-        print("forwarddata")
+        #print("forwarddata")
         if self.tab1.scanWidget.startScanPushButton.isChecked():
             # during a scan : transmit the data to the scanningLoop object and disable the conection to prevent multiple acquisition at a single delay
             self.tab1.scopeWidget.emitData.disconnect()
@@ -190,12 +191,13 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             if reply == QtWidgets.QMessageBox.Yes:
                 self.scanningLoop.Stop()
                 print("After scanningLoop.Stop")
-                self.EndOfScan()
-                print("After EndOfScan")
+                #self.EndOfScan()
+                #print("After EndOfScan")
     
     def EndOfScan(self):
+        print("EndOfScan")
         scanStatus = self.DisconnectScanSignals()
-        
+
         if scanStatus != "Cancel scan":
             
             # Make sure that the startScanPushButton of the scanWidget return to the False state
@@ -206,15 +208,15 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             self.tab1.scanWidget.startScanPushButton.blockSignals(False)
             
             self.scanningThread.exit()
-            
+            print("2. exit scanningThread")           
             
             #generates bug
-            '''
+            
             #wait for the thread exit before going on :
             while self.scanningThread.isRunning():
-                self.thread().msleep(100)
-            '''
-            
+                self.thread().msleep(500)
+                print("3. Wait for thread to exit")
+  
         #reenable the user inteface
         
         self.tab1.scanWidget.startScanPushButton.setText("Start Scan")
@@ -222,8 +224,9 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab1.scanWidget.scanGroupBox.setEnabled(True)
         self.tab1.scopeWidget.setEnabled(True)
         self.tab1.stageWidget.setEnabled(True)
-    
-    
+        print("4. reenables buttons") 
+        
+        
     def ConnectScanSignals(self):
         self.scanningLoop.requestMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(self.tab1.stageWidget.PositionNmSpinBox.value() + x))
         self.tab1.stageWidget.smarActReader.motionEnded.connect(self.scanningLoop.smarActStopCondition.wakeAll)
@@ -371,7 +374,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             if reply == QtWidgets.QMessageBox.Yes:
                 self.feedbackLoop.Stop()
                 print("after stop feedback loop")
-                self.EndOfFeedback()
+                #self.EndOfFeedback()
 
 
     def EndOfFeedback(self):
@@ -390,11 +393,11 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             self.feedbackThread.exit()
             print("exit feedbackThread")
             # wait for the thread exit before going on :
-            '''
+            
             while self.feedbackThread.isRunning():
                 print("waiting 2")
-                self.thread().msleep(25)
-                '''
+                self.thread().msleep(100)
+                
         
         #reenable the user inteface
         self.tab3.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")

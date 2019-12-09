@@ -100,8 +100,10 @@ class ScopeReader(QtCore.QObject):
         self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.HorScale'""")
         
         self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.VerticalOffset' """)
-        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.HorizontalOffset' """)         
-    
+        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.HorizontalOffset' """) 
+        
+        self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.NumSegments'""")        
+  
 
     def Run(self):
 #        print("start main loop")
@@ -228,6 +230,10 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
             elif updatedData[0] == "HorScale":
                 self.XScale=float(updatedData[1])
                 #print("Horscale="+str(self.XScale))
+                
+            elif updatedData[0] == "NumSegments":
+                self.reader.period = float(updatedData[1])
+                #print("###### Nbr of segments = ", updatedData[1])
   
 
     def ScopeGroupBoxToggled(self):
@@ -332,6 +338,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         string = """VBS? 'return=app.Acquisition.Horizontal.NumSegments'"""
         self.writeReader.emit(string)
 
+
     def GetTScale(self):
         string = """VBS? 'return=app.Acquisition.Horizontal.HorScale'"""
         self.writeReader.emit(string)
@@ -357,7 +364,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
     def TransmitData(self, data):
         if self.sweepsProgressBar.value() >= 1:
             self.emitData.emit(data)
-            print("emitData emitted by the scope")
+            #print("emitData emitted by the scope")
         
     def quitScope(self):
         if self.scopeGroupBox.isChecked():

@@ -61,7 +61,7 @@
       <x>10</x>
       <y>30</y>
       <width>350</width>
-      <height>200</height>
+      <height>250</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="scanGroupBoxLayout">
@@ -215,6 +215,98 @@
        </property>
       </widget>
      </item>
+
+     <item>
+      <widget class="QLabel" name="CurrentStepLabel">
+       <property name="text">
+        <string>Current step completion</string>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>8</pointsize>
+         <weight>50</weight>
+         <bold>false</bold>
+        </font>
+       </property>
+      </widget>
+     </item>
+
+
+
+     <item>
+      <widget class="QProgressBar" name="CurrentStepProgressBar">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>170</y>
+         <width>300</width>
+         <height>8</height>
+        </rect>
+       </property>
+       <property name="minimum">
+        <number>0</number>
+       </property>
+       <property name="maximum">
+        <number>100</number>
+       </property>
+       <property name="value">
+        <number>24</number>
+       </property>
+       <property name="textVisible">
+        <bool>true</bool>
+       </property>
+       <property name="value">
+        <number>0</number>
+       </property>
+      </widget>
+     </item>
+
+     <item>
+      <widget class="QLabel" name="ScanLabel">
+       <property name="text">
+        <string>Stab scan completion</string>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>8</pointsize>
+         <weight>50</weight>
+         <bold>false</bold>
+        </font>
+       </property>
+      </widget>
+     </item>
+
+
+
+     <item>
+      <widget class="QProgressBar" name="ScanProgressBar">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>170</y>
+         <width>300</width>
+         <height>8</height>
+        </rect>
+       </property>
+       <property name="minimum">
+        <number>0</number>
+       </property>
+       <property name="maximum">
+        <number>100</number>
+       </property>
+       <property name="value">
+        <number>24</number>
+       </property>
+       <property name="textVisible">
+        <bool>true</bool>
+       </property>
+       <property name="value">
+        <number>0</number>
+       </property>
+      </widget>
+     </item>
+
+
 
     </layout>
    </widget>

@@ -42,7 +42,7 @@ class ScanningStabLoop(QtCore.QObject):
         
         self.tab3 = Tab3
         self.nbrOfPoints = nbrOfPoints
-        self.stepDuration = step_duration   #in s
+        self.stepDuration = step_duration   #in nbr of acquisitions
         self.step = int(step)
         
         self.totalDuration = self.nbrOfPoints*self.stepDuration
@@ -62,6 +62,10 @@ class ScanningStabLoop(QtCore.QObject):
         self.SSrun = True
         
         self.nextStepAllowed = False
+        
+        self.scanStabTime = 0  #in number of steps
+        
+        self.acqScanTime = 0  #in number of acquisitions
 
     def Run(self):
         # move to the intial position and wait until initial position is reached
@@ -80,7 +84,9 @@ class ScanningStabLoop(QtCore.QObject):
 #            # clear scope memory
 #            print('clear memory')
 #            self.requestScopeMemoryClear.emit()
-            
+            if not self.SSrun:
+                print("BREAK SS LOOP")
+                break            
             # freeze this loop while the stage is not at destination :
             print('')
             
@@ -95,7 +101,9 @@ class ScanningStabLoop(QtCore.QObject):
             #self.thread().msleep(self.stepDuration*1000)  #in milliseconds
             while not self.nextStepAllowed:
                 print("waiting for next step allowance")
-                self.thread().msleep(500)
+                self.thread().msleep(100)
+                if not self.SSrun:
+                    break
             #python internal clock
             #self.requestStopSSMotion.emit()
             self.nextStepAllowed = False
@@ -104,7 +112,7 @@ class ScanningStabLoop(QtCore.QObject):
             print("after .wait in scan stab")
             #self.mutex.unlock()
             
-            self.stabPos += self.step
+            self.stabPos = self.tab3.stageWidget.PositionNmLCD.value() + self.step
             
             
             self.changeTimeSignal.emit()
@@ -135,9 +143,8 @@ class ScanningStabLoop(QtCore.QObject):
             file.close()
             self.StoreData([])
             '''
-
-            if not self.SSrun:
-                return
+            self.scanStabTime += self.stepDuration
+            
         self.scanStabFinished.emit()
         
         
@@ -162,7 +169,7 @@ Scan Stab Widget class
 qtCreatorFile = "ScanStabPyQt5UI.ui"
 Ui_StopScanStabWidget, QtBaseClass = loadUiType(qtCreatorFile)
 class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
-    def __init__(self, Tab3):
+    def __init__(self, Tab3, mode):
         QtWidgets.QFrame.__init__(self, parent=None)
         self.setupUi(self)
         
@@ -172,6 +179,9 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
         self.centralPosSpinBox.setValue(1000)
         self.stepSizeSpinBox.setValue(20)
         self.nbrPointsSpinBox.setValue(20)
+        
+        
+        self.mode = mode
         
         self.startScanPushButton.clicked.connect(self.StartStopScanStab)
         
@@ -235,7 +245,7 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
                                                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
             if reply == QtWidgets.QMessageBox.Yes:
                 self.scanningStabLoop.Stop()
-                self.EndOfStabScan()
+                #self.EndOfStabScan()
 
         
     def stabilize_at(self, position):
@@ -245,16 +255,15 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
         self.tab3.shapedErrorPlotDraw()
         self.tab3.tMax = self.scanningStabLoop.stepDuration
         
-        
-        self.tab3.stabScanBtnClicked.emit(True)
-        self.tab3.launch_feedback_test_btn.setChecked(True)
-        print("after checked button true")
-        #self.tab3.ploterror_btn.setChecked(True)
-        #self.tab3.ploterror_btn.clicked.emit()
-        
-        
-        #self.tab3.launch_feedback_btn.setChecked(True)
-        #self.tab3.checkFeedback()
+        if self.mode == "test scan stab":        
+            self.tab3.testStabScanBtnClicked.emit(True)
+            self.tab3.launch_feedback_test_btn.setChecked(True)
+            print("after checked button true")
+        if self.mode == "scan stab":
+            self.tab3.stabScanBtnClicked.emit(True)
+            self.tab3.launch_feedback_btn.setChecked(True)
+            print("after checked button true")           
+            
 
     def stopStabilize(self):
         self.tab3.launch_feedback_test_btn.setChecked(False)
@@ -276,26 +285,32 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
         self.timeLCD.display(new_t)
 
 
+    def changeProgressBar(self, time):
+                self.scanningStabLoop.acqScanTime += 1
+                self.CurrentStepProgressBar.setValue((time/self.scanningStabLoop.stepDuration)*100)
+                self.ScanProgressBar.setValue((self.scanningStabLoop.acqScanTime/self.scanningStabLoop.totalDuration)*100)
+                
     def EndOfStabScan(self):
         scanStabStatus = self.DisconnectScanStabSignals()
-        #if scanStabStatus != "Cancel scan":
-        # Make sure that the startScanPushButton of the scanWidget return to the False state
-        self.startScanPushButton.blockSignals(True)
-        self.startScanPushButton.setChecked(False)
-        self.startScanPushButton.blockSignals(False)
-        self.startScanPushButton.setText("Start Stabilized Scan")
-        self.tab3.launch_feedback_test_btn.setChecked(False)
-        self.scanningStabThread.exit()
-        print("exit scanningStabThread")
-        # wait for the thread exit before going on :
-        while self.scanningStabThread.isRunning():
-            self.thread().msleep(100)
-    #reenable the user inteface
+        if scanStabStatus != "Cancel stabilized scan":
+            # Make sure that the startScanPushButton of the scanWidget return to the False state
+            self.startScanPushButton.blockSignals(True)
+            self.startScanPushButton.setChecked(False)
+            self.startScanPushButton.blockSignals(False)
+            self.startScanPushButton.setText("Start Stabilized Scan")
+            self.tab3.launch_feedback_test_btn.setChecked(False)
+            
+            self.scanningStabThread.exit()
+            
+            print("exit scanningStabThread")
+            # wait for the thread exit before going on :
+            while self.scanningStabThread.isRunning():
+                print("wait for SS thread to end")
+                self.thread().msleep(100)
+        #reenable the user inteface
    
-        self.scanGroupBox.setEnabled(True)
-        #self.scopeWidget.setEnabled(True)
-        #self.stageWidget.setEnabled(True)
 
+        self.scanGroupBox.setEnabled(True)
 
     def ConnectScanStabSignals(self):
         
@@ -305,7 +320,7 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
         
         
         self.scanningStabLoop.changeTimeSignal.connect(self.changeTimeDisplay)
-        
+        self.tab3.stepPercentSignal.connect(self.changeProgressBar)
         #self.stageWidget.smarActReader.motionEnded.connect(self.scanningLoop.smarActStopCondition.wakeAll)
         # Allow the scanningLoop to set the scope trigger mode
         
