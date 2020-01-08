@@ -265,7 +265,7 @@ class SidebandsTab(QtWidgets.QWidget):
             
             self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat)
             self.scanPlotAxis.set_aspect('auto')
-            self.scanPlotAxis.set_ylabel("Delay", fontsize=10)
+            self.scanPlotAxis.set_ylabel("Delay (steps)", fontsize=10)
             self.scanPlotAxis.set_xlabel("ToF", fontsize=10)
 
             
