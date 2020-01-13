@@ -30,7 +30,7 @@ class FeedbackTab(QtWidgets.QWidget):
     stepPercentSignal = QtCore.pyqtSignal(int)
     
     
-    def __init__(self,  scopeWin, stageWin, Tab2):
+    def __init__(self,  scopeWin, stageWin, Tab1, Tab2):
         """
         tab 3: Feedback TAb. Allows the user to select PID parameters, locking position, etc.. and to launch the feedback. In oder to test the program, another widget can be used to generate artificial signals with any level of noise and any drift of the delay.
         """
@@ -112,6 +112,7 @@ class FeedbackTab(QtWidgets.QWidget):
         self.scopeWidget = scopeWin
         self.stageWidget = stageWin
         
+        self.tab1 = Tab1
         self.tab2 = Tab2
         
         self.scope2PlotFigure = plt.Figure()
@@ -571,18 +572,28 @@ class FeedbackTab(QtWidgets.QWidget):
         self.scope2PlotCanvas.draw()
        
         
-        ########### updates position and error screens in tab 3 ################
+        ########### updates position and error screens in tab 3, and intensity ratio screen in tab1 ################
        
         self.time_errorPlotAxis.set_ylim([-100,100])
         self.time_positionPlotAxis.set_ylim([-100,100])
-       
+        self.tab1.time_ratioPlotAxis.set_ylim([-100,100])
         
+        
+        ########UPDATE here intenensity ratio of tab 1 ##########
+        tab1_SB_intensity =  np.trapz(self.data[1][self.tab1.SBVector_int[0]:self.tab1.SBVector_int[1]])/(self.tab1.SBVector_int[1]-self.tab1.SBVector_int[0]) \
+                - np.trapz(self.data[1][self.tab1.BGVector_int[0]:self.tab1.BGVector_int[1]])/(self.tab1.BGVector_int[1]-self.tab1.BGVector_int[0])
+                
+        tab1_Harm_intensity = np.trapz(self.data[1][self.tab1.HarmVector_int[0]:self.tab1.HarmVector_int[1]])/(self.tab1.HarmVector_int[1]-self.tab1.HarmVector_int[0]) \
+                - np.trapz(self.data[1][self.tab1.BGVector_int[0]:self.tab1.BGVector_int[1]])/(self.tab1.BGVector_int[1]-self.tab1.BGVector_int[0])
+        
+        self.tab1.intensityRatio = abs(tab1_SB_intensity/tab1_Harm_intensity)
        
         le = len(self.live_time_data)  #size of the window adapted to the period
         if le*self.T < 30:
             self.live_time_data.append(self.live_time_data[-1]+self.T)
             self.live_error_data.append(self.errorValue)
             self.live_position_data.append(self.stageWidget.PositionNmLCD.value())
+            self.tab1.live_ratio_data.append(self.tab1.intensityRatio)
             #
             #self.tab3.live_position_data.append(self.tab3.currentPos)
            
@@ -592,11 +603,12 @@ class FeedbackTab(QtWidgets.QWidget):
             for i in range(le-1):
                 self.live_error_data[i] = self.live_error_data[i+1]
                 self.live_position_data[i] = self.live_position_data[i+1]
-                
+                self.tab1.live_ratio_data[i] = self.live_ratio_data[i+1]
             
             #print("error value printed = "+str(self.tab3.error_value)) 
             self.live_error_data[-1] = self.errorValue
             self.live_position_data[-1] = self.stageWidget.PositionNmLCD.value()
+            self.live_ratio_data[-1] = self.tab1.intensityRatio
             #self.tab3.live_position_data[-1] = self.tab3.currentPos
            
            
@@ -620,9 +632,7 @@ class FeedbackTab(QtWidgets.QWidget):
             y_max = 0.99*Max
         
         self.time_errorPlotAxis.set_ylim([y_min, y_max])
-        
-        
-        
+   
         self.time_errorPlotAxis.grid(True)
         self.time_errorPlotAxis.set_ylabel("Error (nm)", fontsize=7)
         self.time_errorPlotAxis.set_xlabel("Time (step)", fontsize=7)
@@ -649,16 +659,41 @@ class FeedbackTab(QtWidgets.QWidget):
             y_max2 = 0.99*Max2
         
         self.time_positionPlotAxis.set_ylim([y_min2, y_max2])
-        
-        
-        
-        
+ 
         
         self.time_positionPlotAxis.grid(True)
         self.time_positionPlotAxis.set_ylabel("Delay line position (nm)", fontsize=7)
         self.time_positionPlotAxis.set_xlabel("Time (step)", fontsize=7)
        
         self.time_positionPlotCanvas.draw()
+        
+        
+        
+        self.time_ratioPlotTrace.set_xdata(self.live_time_data)
+        self.time_ratioPlotTrace.set_ydata(self.live_ratio_data)
+        self.time_ratioPlotAxis.set_xlim([self.live_time_data[0], self.live_time_data[-1]])
+        #self.tab3.time_positionPlotAxis.set_ylim([1.1*min(-max(self.tab3.live_position_data), min(self.tab3.live_position_data)), 1.1*max(max(self.tab3.live_position_data), -min(self.tab3.live_position_data))])
+        Min3 = min(self.live_ratio_data)
+        Max3 = max(self.live_ratio_data)
+        y_min3 = 0
+        y_max3 = 0
+        if Min3>0:
+            y_min3 = 0.99*Min3
+        else:
+           y_min3 = 1.01*Min3
+        if Max2>0:
+            y_max3 = 1.01*Max3
+        else:
+            y_max3 = 0.99*Max3
+        
+        self.time_ratioPlotAxis.set_ylim([y_min3, y_max3])
+ 
+        
+        self.time_ratioPlotAxis.grid(True)
+        self.time_ratioPlotAxis.set_ylabel("Intensity ratio", fontsize=7)
+        self.time_ratioPlotAxis.set_xlabel("Time (step)", fontsize=7)
+       
+        self.time_ratioPlotCanvas.draw()
         
       
         

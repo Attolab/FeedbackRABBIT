@@ -379,11 +379,12 @@ class SidebandsTab(QtWidgets.QWidget):
 
         for elt in self.SB_vector:
             self.SB_vector_int.append(int(elt))
+
         for elt in self.BG_vector:
             self.BG_vector_int.append(int(elt))
         self.SB_vector_int.sort()
         self.BG_vector_int.sort()
-    
+        print("SB_vector_int = "+str(self.SB_vector_int))   
         #3rd sideband + normalization
         int_left = self.BG_vector_int[0]
         int_right = self.BG_vector_int[1]

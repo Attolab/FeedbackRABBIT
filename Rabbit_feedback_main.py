@@ -40,7 +40,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     
         self.tab1 = live_win.LiveTab()
         self.tab2 = sidebands_win.SidebandsTab()
-        self.tab3 = feedback_win.FeedbackTab(self.tab1.scopeWidget, self.tab1.stageWidget, self.tab2)
+        self.tab3 = feedback_win.FeedbackTab(self.tab1.scopeWidget, self.tab1.stageWidget, self.tab1, self.tab2)
         #self.tab4 = scanStab_win.scanStabTab(self.tab3)
         
         self.addTab(self.tab1,"Live")
