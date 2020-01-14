@@ -40,6 +40,10 @@ class LiveTab(QtWidgets.QWidget):
         self.HarmVector = []
         self.BGVector = []
         
+        self.SBVector_points = []
+        self.HarmVector_points = []
+        self.BGVector_points = []
+        
         self.intensityRatio = 0.
         
         self.live_ratio_data = []
@@ -158,15 +162,16 @@ class LiveTab(QtWidgets.QWidget):
       
         
         #need to put here the vertical lines for the intenisty contrast calculation
+        '''
         for x in self.SBVector:
-            self.scopePlotAxis.axvline(x=data[0][x],color='blue')
+            self.scopePlotAxis.axvline(x,color='blue')
         for x in self.HarmVector:
-            self.scopePlotAxis.axvline(x=data[0][x],color='green')
+            self.scopePlotAxis.axvline(x,color='green')
         for x in self.BGVector:
-            self.scopePlotAxis.axvline(x=data[0][x],color='white')
+            self.scopePlotAxis.axvline(x,color='white')
         self.scopePlotCanvas.draw() 
 
-
+        '''
 
              
             
@@ -176,43 +181,84 @@ class LiveTab(QtWidgets.QWidget):
             box3.setChecked(False)
             
     def onclick(self, event):
-        print("SBVector ="+str(self.SBVector))
+
         if self.SBCheckBox.isChecked():
             if self.nbr_clicks_SB == 2:
                 self.SBVector = []
                 self.nbr_clicks_SB = 0
+                print("SBVector ="+str(self.SBVector))
+                self.SB1.remove()
+                self.SB2.remove()
+                print("lines =" +str(self.scopePlotAxis.lines))
+                self.scopePlotCanvas.draw() 
+                
             else:
                 x = event.xdata
-                self.scopePlotAxis.axvline(x,color='blue')
+                if self.nbr_clicks_SB == 0:
+                    self.SB1 = self.scopePlotAxis.axvline(x,color='blue')
+                    self.scopePlotCanvas.draw()
+                if self.nbr_clicks_SB == 1:
+                    self.SB2 = self.scopePlotAxis.axvline(x,color='blue')
+                    self.scopePlotCanvas.draw()
                 self.SBVector.append(x)
-                self.scopePlotCanvas.draw()  
+                  
                 self.nbr_clicks_SB += 1
-                self.SBVector.sort()         
-        
+                self.SBVector.sort()    
+                print("SBVector ="+str(self.SBVector))
+                print("lines =" +str(self.scopePlotAxis.lines))
+  
+
+
+      
         if self.HarmCheckBox.isChecked():
             if self.nbr_clicks_Harm == 2:
                 self.HarmVector = []
                 self.nbr_clicks_Harm = 0
+                print("HarmVector ="+str(self.HarmVector))
+                self.H1.remove()
+                self.H2.remove()
+                print("lines =" +str(self.scopePlotAxis.lines))
+                self.scopePlotCanvas.draw() 
             else: 
                 x = event.xdata
-                self.scopePlotAxis.axvline(x,color='green')
+                if self.nbr_clicks_Harm == 0:
+                    self.H1 = self.scopePlotAxis.axvline(x,color='green')
+                    self.scopePlotCanvas.draw()
+                if self.nbr_clicks_Harm == 1:
+                    self.H2 = self.scopePlotAxis.axvline(x,color='green')
+                    self.scopePlotCanvas.draw()
                 self.HarmVector.append(x)
-                self.scopePlotCanvas.draw()  
+                #self.scopePlotCanvas.draw()  
                 self.nbr_clicks_Harm += 1
                 self.HarmVector.sort()
+                print("HarmVector ="+str(self.HarmVector))
+                print("lines =" +str(self.scopePlotAxis.lines))
+
+
                 
         if self.BGCheckBox.isChecked():
             if self.nbr_clicks_BG == 2:
                 self.BGVector = []
                 self.nbr_clicks_BG = 0
+                print("BGVector ="+str(self.BGVector))
+                self.BG1.remove()
+                self.BG2.remove()
+                print("lines =" +str(self.scopePlotAxis.lines))
+                self.scopePlotCanvas.draw()                 
             else:
                 x = event.xdata
-                self.scopePlotAxis.axvline(x,color='white')
+                if self.nbr_clicks_BG == 0:
+                    self.BG1 = self.scopePlotAxis.axvline(x,color='white')
+                    self.scopePlotCanvas.draw()
+                if self.nbr_clicks_BG == 1:
+                    self.BG2 = self.scopePlotAxis.axvline(x,color='white')
+                    self.scopePlotCanvas.draw()
                 self.BGVector.append(x)
-                self.scopePlotCanvas.draw()  
+                #self.scopePlotCanvas.draw()  
                 self.nbr_clicks_BG += 1  
                 self.BGVector.sort()
-
+                print("BGVector ="+str(self.BGVector))
+                print("lines =" +str(self.scopePlotAxis.lines))
   
     def from_tof2int(self, tof1, tof2, delta_tof):
         return int((tof1 - tof2)/delta_tof)
@@ -242,5 +288,8 @@ class LiveTab(QtWidgets.QWidget):
         BG_i1 = self.from_tof2int(BG_tof1, tof_min, Delta_tof)        
         BG_i2 = self.from_tof2int(BG_tof2, tof_min, Delta_tof)          
         
-        
+        #vectors containing the position of the edges of the bands, in int
+        self.SBVector_points = [SB_i1, SB_i2]
+        self.HarmVector_points = [Harm_i1, Harm_i2]
+        self.BGVector_points = [BG_i1, BG_i2]
         

@@ -30,7 +30,7 @@ class FeedbackTab(QtWidgets.QWidget):
     stepPercentSignal = QtCore.pyqtSignal(int)
     
     
-    def __init__(self,  scopeWin, stageWin, Tab1, Tab2):
+    def __init__(self, Tab1, Tab2):
         """
         tab 3: Feedback TAb. Allows the user to select PID parameters, locking position, etc.. and to launch the feedback. In oder to test the program, another widget can be used to generate artificial signals with any level of noise and any drift of the delay.
         """
@@ -108,12 +108,13 @@ class FeedbackTab(QtWidgets.QWidget):
 
         ############################### interface ###############################################
        
-
-        self.scopeWidget = scopeWin
-        self.stageWidget = stageWin
-        
         self.tab1 = Tab1
         self.tab2 = Tab2
+        
+        self.scopeWidget = self.tab1.scopeWidget
+        self.stageWidget = self.tab1.stageWidget
+        
+
         
         self.scope2PlotFigure = plt.Figure()
         self.scope2PlotAxis = self.scope2PlotFigure.add_subplot(111, facecolor='k')
@@ -580,13 +581,21 @@ class FeedbackTab(QtWidgets.QWidget):
         
         
         ########UPDATE here intenensity ratio of tab 1 ##########
-        tab1_SB_intensity =  np.trapz(self.data[1][self.tab1.SBVector_int[0]:self.tab1.SBVector_int[1]])/(self.tab1.SBVector_int[1]-self.tab1.SBVector_int[0]) \
-                - np.trapz(self.data[1][self.tab1.BGVector_int[0]:self.tab1.BGVector_int[1]])/(self.tab1.BGVector_int[1]-self.tab1.BGVector_int[0])
-                
-        tab1_Harm_intensity = np.trapz(self.data[1][self.tab1.HarmVector_int[0]:self.tab1.HarmVector_int[1]])/(self.tab1.HarmVector_int[1]-self.tab1.HarmVector_int[0]) \
-                - np.trapz(self.data[1][self.tab1.BGVector_int[0]:self.tab1.BGVector_int[1]])/(self.tab1.BGVector_int[1]-self.tab1.BGVector_int[0])
         
-        self.tab1.intensityRatio = abs(tab1_SB_intensity/tab1_Harm_intensity)
+        if (len(self.tab1.BGVector_points) == 2) and (len(self.tab1.HarmVector_points) == 2) and (len(self.tab1.BGVector_points) == 2):
+                 
+            BG_intensity = np.trapz(self.data[1][self.tab1.BGVector_points[0]:self.tab1.BGVector_points[1]])/(self.tab1.BGVector_points[1]-self.tab1.BGVector_points[0])
+            
+            tab1_SB_intensity =  np.trapz(self.data[1][self.tab1.SBVector_points[0]:self.tab1.SBVector_points[1]])/(self.tab1.SBVector_points[1]-self.tab1.SBVector_points[0]) \
+                    - BG_intensity
+                    
+            tab1_Harm_intensity = np.trapz(self.data[1][self.tab1.HarmVector_points[0]:self.tab1.HarmVector_points[1]])/(self.tab1.HarmVector_points[1]-self.tab1.HarmVector_points[0]) \
+                    - BG_intensity
+            
+            self.tab1.intensityRatio = abs(tab1_SB_intensity/tab1_Harm_intensity)
+        
+        
+        #################################################################
        
         le = len(self.live_time_data)  #size of the window adapted to the period
         if le*self.T < 30:
