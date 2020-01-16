@@ -153,7 +153,7 @@
      <item>
       <widget class="QLineEdit" name="dataFolderEdit">
        <property name="text">
-        <string>C:\Users\mluttmann\Documents\Python Scripts\data\monscan</string>
+        <string>C:\Users\Commande\Documents\Acquisition\RASTA tests data\myscan</string>
        </property>
       </widget>
      </item>

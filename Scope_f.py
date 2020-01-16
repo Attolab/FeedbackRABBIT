@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 LeCroy WaveRunner 625Zi oscilloscope
@@ -53,8 +52,9 @@ class ScopeReader(QtCore.QObject):
         scopeWidget.writeReader.connect(self.writeScope)
         
         self.period = 1.*1000  #period of queries, in millisecond
-        
-        
+        self.shortTime = 1.        
+        self.numSegments = 3000   
+        self.acquiredSegments = 0
         self.canAsk = True
 
     def writeScope(self, command):
@@ -119,6 +119,12 @@ class ScopeReader(QtCore.QObject):
 #                           "Single":self.Single(),
 #                           "Stop":self.Stop(),
 #                           "Starting":""}
+        
+        
+        #get the total number of segments
+        #self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.NumSegments'""")          
+       
+        
         while self.mode: # An unempty string is considered True in python
             self.thread().msleep(100)
             if self.mode == "Auto":
@@ -142,18 +148,29 @@ class ScopeReader(QtCore.QObject):
 
     def Normal(self):
         while self.mode == "Normal":
-            
-            #if self.canAsk == True:
-                #print("allow VBS? command for new scope data")
-            self.ReadWaveform()
-            self.ReadParameters()
-            # pause loop
+            #the following loop waits for all the sweeps to be recorded and averaged by the scope, \
+            #before making an acquisition (so that we don't sample two acquisitions corresponding to the same set of sweeps)
+            loop = True 
+            while loop:
+                #print("inside segment acquisition loop")
                 
-            #else:
-                #print("VBS? command forbidden")
+                self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.AcquiredSegments'""")  
+                #acquiredSegments = self.scope.ReadString(50)
+                print("acquired segments =" +str(self.acquiredSegments))
+                if self.acquiredSegments == self.numSegments:
+                    print("all segments acquired")
+                    self.ReadWaveform()
+                    self.ReadParameters()
+                    loop = False
+                #self.thread().msleep(300)
+                self.thread().msleep(500)
                 
-            self.thread().msleep(self.period)
-            #self.canAsk = True
+            #self.ReadWaveform()
+            #self.ReadParameters()
+
+            #self.thread().msleep(self.period)
+
+
     def Single(self):
         # make a single acquisition before switching to the stopped state when the oscilloscope is ready.
         self.ReadWaveform()
@@ -232,9 +249,13 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
                 #print("Horscale="+str(self.XScale))
                 
             elif updatedData[0] == "NumSegments":
-                self.reader.period = float(updatedData[1])
-                #print("###### Nbr of segments = ", updatedData[1])
-  
+                self.reader.numSegments = int(float(updatedData[1]))
+                print("###### Nbr of segments = ", updatedData[1])
+                
+            elif updatedData[0] == "AcquiredSegments":
+                self.reader.acquiredSegments = int(float(updatedData[1]))
+                #print("###### Acquired segments = ", updatedData[1])  
+                
 
     def ScopeGroupBoxToggled(self):
         if self.scopeGroupBox.isChecked():
@@ -362,14 +383,16 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         self.writeReader.emit("""VBS 'app.Acquisition.ClearSweeps' """)
     
     def TransmitData(self, data):
-        if self.sweepsProgressBar.value() >= 1:
-            self.emitData.emit(data)
-            #print("emitData emitted by the scope")
+        #if self.sweepsProgressBar.value() >= 1:
+        self.emitData.emit(data)
+        print("emitData emitted by the scope")
         
     def quitScope(self):
+        self.reader.acquiredSegments = self.reader.numSegments
+        print("QUIT SCOPE")
         if self.scopeGroupBox.isChecked():
             self.scopeGroupBox.setChecked(False)
-            #self.reader.Off()
+        self.reader.Off()
         self.scope.Disconnect()
 
 

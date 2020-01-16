@@ -345,6 +345,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         
             self.tab3.PIDParam = [self.tab3.Kp, self.tab3.Ki, self.tab3.Kd, self.tab3.T]
             
+            '''
             # parameters: mode, tab3, lockingPos, SB_vector_int, BG_vector_int, SBParam, a, maxError, PIDParam, folder, tMax, feedbackNbr, errorValue
             self.feedbackLoop  = FeedbackLoop(mode, 
                                              self.tab3, 
@@ -360,6 +361,12 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
                                              self.tab3.tMax,
                                              self.tab3.feedbackNbr,
                                              self.tab3.errorValue)
+            '''
+            
+            self.feedbackLoop  = FeedbackLoop(mode, self.tab1, self.tab2, self.tab3)
+
+
+
 
             # create and start the scanning thread
             self.feedbackThread = QtCore.QThread()

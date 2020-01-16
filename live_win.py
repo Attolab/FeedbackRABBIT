@@ -161,7 +161,7 @@ class LiveTab(QtWidgets.QWidget):
         self.scopePlotAxis.set_xlabel("Time (s)", fontsize=17)
         self.scopePlotCanvas.draw()      
         
-        #need to put here the vertical lines for the intenisty contrast calculation
+        #need to put here the vertical lines for the intensity contrast calculation
         '''
         for x in self.SBVector:
             self.scopePlotAxis.axvline(x,color='blue')
@@ -175,31 +175,36 @@ class LiveTab(QtWidgets.QWidget):
 
         self.time_ratioPlotAxis.set_ylim([-100,100])
              
-        if (len(self.BGVector) == 2) and (len(self.HarmVector) == 2) and (len(self.BGVector) == 2):
+        if (len(self.SBVector) == 2) and (len(self.HarmVector) == 2) and (len(self.BGVector) == 2):
              
             self.tof2int(data) 
 
-            print("self.BGVector_points = " +str(self.BGVector_points))
-            
+            #print("self.BGVector_points = " +str(self.BGVector_points))
+            #print("len data = " +str(len(data[1])))
             BG_intensity = np.trapz(data[1][self.BGVector_points[0]:self.BGVector_points[1]])/abs(self.BGVector_points[1]-self.BGVector_points[0])
+            #print("data[1][self.BGVector_points[0]] = "+str(data[1][self.BGVector_points[0]]))
+            #print("BG_intensity = "+str(BG_intensity))  
+                    
+            retrieved_data = data[1] - BG_intensity
+            norm = np.trapz(retrieved_data)
+            shaped_data = retrieved_data/norm
             
-            print("BG_intensity = "+str(BG_intensity))            
+            #SB_intensity =  np.trapz(data[1][self.SBVector_points[0]:self.SBVector_points[1]])/abs(self.SBVector_points[1]-self.SBVector_points[0]) \
+                   # - BG_intensity
+            SB_intensity = np.trapz(shaped_data[self.SBVector_points[0]:self.SBVector_points[1]])/abs(self.SBVector_points[1]-self.SBVector_points[0])
+            #print("self.SBVector_points = " +str(self.SBVector_points))
+            #print("SB_intensity = "+str(SB_intensity))                     
             
-            SB_intensity =  np.trapz(data[1][self.SBVector_points[0]:self.SBVector_points[1]])/abs(self.SBVector_points[1]-self.SBVector_points[0]) \
-                    - BG_intensity
-            
-            print("self.SBVector_points = " +str(self.SBVector_points))
-            print("SB_intensity = "+str(SB_intensity))                     
-            
-            Harm_intensity = np.trapz(data[1][self.HarmVector_points[0]:self.HarmVector_points[1]])/abs(self.HarmVector_points[1]-self.HarmVector_points[0]) \
-                    - BG_intensity
-            
-            print("self.HarmVector_points = " +str(self.HarmVector_points))
-            print("Harm_intensity = "+str(Harm_intensity))             
+            #Harm_intensity = np.trapz(data[1][self.HarmVector_points[0]:self.HarmVector_points[1]])/abs(self.HarmVector_points[1]-self.HarmVector_points[0]) \
+                    #- BG_intensity
+            Harm_intensity = np.trapz(shaped_data[self.HarmVector_points[0]:self.HarmVector_points[1]])/abs(self.HarmVector_points[1]-self.HarmVector_points[0])
+            #print("self.HarmVector_points = " +str(self.HarmVector_points))
+            #print("data[1][self.HarmVector_points[0]] = "+str(data[1][self.HarmVector_points[0]]))
+            #print("Harm_intensity = "+str(Harm_intensity))             
             
             self.intensityRatio = abs(SB_intensity/Harm_intensity)            
             
-            print("intensity ratio = " +str(self.intensityRatio))
+            #print("intensity ratio = " +str(self.intensityRatio))
             
         le = len(self.live_time_data)  #size of the window adapted to the period
         if le < 30:
@@ -223,8 +228,9 @@ class LiveTab(QtWidgets.QWidget):
         
         Min3 = min(self.live_ratio_data)
         Max3 = max(self.live_ratio_data)
-        y_min3 = 0
-        y_max3 = 0
+        y_min3 = Min3 - 0.00001
+        y_max3 = Max3 + 0.00001
+        '''
         if Min3>0:
             y_min3 = 0.99*Min3
         else:
@@ -233,13 +239,13 @@ class LiveTab(QtWidgets.QWidget):
             y_max3 = 1.01*Max3
         else:
             y_max3 = 0.99*Max3
-        
+        '''
         self.time_ratioPlotAxis.set_ylim([y_min3, y_max3])
  
         
         self.time_ratioPlotAxis.grid(True)
-        self.time_ratioPlotAxis.set_ylabel("Intensity ratio", fontsize=7)
-        self.time_ratioPlotAxis.set_xlabel("Time (step)", fontsize=7)
+        self.time_ratioPlotAxis.set_ylabel("Intensity ratio", fontsize=10)
+        self.time_ratioPlotAxis.set_xlabel("Number of acquisitions", fontsize=2)
        
         self.time_ratioPlotCanvas.draw()
         
@@ -337,6 +343,7 @@ class LiveTab(QtWidgets.QWidget):
     def tof2int(self, data):
         #returns SB, Harm and BG vectors with points in number of "pixels"
 
+        print("TOF2INT")
         SB_tof1, SB_tof2 = self.SBVector[0], self.SBVector[1] 
         Harm_tof1, Harm_tof2 = self.HarmVector[0], self.HarmVector[1]
         BG_tof1, BG_tof2 = self.BGVector[0], self.BGVector[1]

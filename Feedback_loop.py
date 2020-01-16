@@ -28,33 +28,36 @@ class FeedbackLoop(QtCore.QObject):
     requestScopeMemoryClear = QtCore.pyqtSignal()
     setScopeMode = QtCore.pyqtSignal(int)
     requestEmitDataReconnection = QtCore.pyqtSignal()
-    def __init__(self, mode, tab3, currentPos, lockingPos, SB_vector_int, BG_vector_int, SBParam, a, maxError, PIDParam, folder, tMax, feedbackNbr, errorValue):   #PIDParam = [Kp, Ki, Kd, T]
+    def __init__(self, mode, tab1, tab2, tab3):   
         super(FeedbackLoop, self).__init__()
         
         
         self.mode = mode #feedback test or feedback
+        self.tab1 = tab1
+        self.tab2 = tab2
         self.tab3 = tab3
 
-        self.lockingPos = lockingPos
+        self.lockingPos = float(self.tab3.locking_position_display.text())
+        currentPos = self.tab1.stageWidget.PositionNmLCD.intValue()
         
         self.moveTo = self.lockingPos - currentPos
-        self.SB_vector_int = SB_vector_int
-        self.BG_vector_int = BG_vector_int
-        self.SBParam = SBParam   # SBParam = [O1, O2, A1, A2, phi1, phi2]
-        self.a = a # slope of the error signal (rad/nm)
-        self.maxError = maxError
-        self.tMax = tMax
-        self.PIDParam = PIDParam
-        self.folder = folder
+        self.SB_vector_int = self.tab2.SB_vector_int
+        self.BG_vector_int = self.tab2.BG_vector_int
+        self.SBParam = self.tab3.SBParam   # SBParam = [O1, O2, A1, A2, phi1, phi2]
+        self.a = self.tab3.a # slope of the error signal (rad/nm)
+        self.maxError = float(self.tab3.max_error_display.text())
+        self.tMax = self.tab3.tMax
+        self.PIDParam = self.tab3.PIDParam  #PIDParam = [Kp, Ki, Kd, T]
+        self.folder = self.tab3.storedatafolder
   
         self.c_m_s = 3*10**8
         self.omega = 2.35*10**(15)        
-        self.feedbackNbr = feedbackNbr #label for this feedback loop, useful for stabilized scan
+        self.feedbackNbr = self.tab3.feedbackNbr #label for this feedback loop, useful for stabilized scan
         
         self.data = []
         
         self.offsetDelay = 0.
-        self.errorValue = errorValue
+        self.errorValue = self.tab3.errorValue
         self.command = 0.
         
         self.U = [0,0]
@@ -124,7 +127,7 @@ class FeedbackLoop(QtCore.QObject):
             # read scope 
             
             while self.data == []:
-                print("waiting 1")
+                #print("waiting 1")
                 self.thread().msleep(100)
                 if not self.run:
                     break
@@ -137,14 +140,30 @@ class FeedbackLoop(QtCore.QObject):
                 ################### measure phase shift ##############
                 # normalization ?????  need to normalize self.data[1] ?
                 
+                Background = np.trapz(self.data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])
+                '''
                 V1 = np.trapz(self.data[1][self.SB_vector_int[0]:self.SB_vector_int[1]])/(self.SB_vector_int[1]-self.SB_vector_int[0]) \
                 - np.trapz(self.data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])/(self.BG_vector_int[1]-self.BG_vector_int[0])
                 
                 V2 = np.trapz(self.data[1][self.SB_vector_int[2]:self.SB_vector_int[3]])/(self.SB_vector_int[3]-self.SB_vector_int[2]) \
                 - np.trapz(self.data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])/(self.BG_vector_int[1]-self.BG_vector_int[0])
-                           
+                '''
+                
+                
+                #shaping of data (BG removed + normalization)
+                
+                retrieved_data = self.data[1] - Background
+                norm = np.trapz(self.data[1])
+                shaped_data = retrieved_data/norm
+                
+                V1 = np.trapz(shaped_data[self.SB_vector_int[0]:self.SB_vector_int[1]])/abs(self.SB_vector_int[1] - self.SB_vector_int[0])
+                
+                V2 = np.trapz(shaped_data[self.SB_vector_int[2]:self.SB_vector_int[3]])/abs(self.SB_vector_int[3] - self.SB_vector_int[2])
+                
+                # reconstruction of the phase
+                
                 Dphi = self.Arctoperator(V1, V2, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])            
-            
+                
                 
                 
             if self.mode == "Test Feedback":

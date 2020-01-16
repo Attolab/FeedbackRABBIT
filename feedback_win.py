@@ -73,7 +73,7 @@ class FeedbackTab(QtWidgets.QWidget):
         
         self.Range = [0,0]
         self.lin_error_signal = []
-        self.storedatafolder = r'C:\Users\mluttmann\Documents\Python Scripts\data\feedbackdata'  #where to store data during feedback
+        self.storedatafolder = r'C:\Users\Public\Documents\Python Scripts\RASTA\data\data feedback'  #where to store data during feedback
         
         self.x_error_nm = 0.   # error value without offset
         self.errorValue = 0.   # error value with offset, will change at each feedback step

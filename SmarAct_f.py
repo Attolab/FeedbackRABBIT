@@ -376,7 +376,7 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
             return 0
         else:
             # set the sensor type corresponding to the channel: 1 -> SA_S_SENSOR_TYPE
-            sensorType = 1
+            sensorType = 21
             channelIndex = index - 1
             status = SmaractDll.SA_SetSensorType_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(channelIndex), ctypes.c_ulong(sensorType))
 
