@@ -134,6 +134,8 @@ class FeedbackLoop(QtCore.QObject):
                 
             self.requestScopeMemoryClear.emit()               
 
+            smarActPos = self.tab3.stageWidget.PositionNmLCD.value()     
+            
             
             if self.mode == "Feedback": 
             
@@ -164,6 +166,7 @@ class FeedbackLoop(QtCore.QObject):
                 
                 Dphi = self.Arctoperator(V1, V2, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])            
                 
+
                 
                 
             if self.mode == "Test Feedback":
@@ -174,7 +177,7 @@ class FeedbackLoop(QtCore.QObject):
                 drift_freq = float(self.tab3.drift_frequency_display.text())
                 drift_amp = float(self.tab3.drift_amp_display.text())                
                 
-                smarActPos = self.tab3.stageWidget.PositionNmLCD.value()
+                #smarActPos = self.tab3.stageWidget.PositionNmLCD.value()
                 tau_s = smarActPos*10**(-9)/self.tab3.tab2.c_m_s               
                 
                 compensation_shift = smarActPos - self.lockingPos #how much we've moved so far 

@@ -124,6 +124,7 @@ class ScanningLoop(QtCore.QObject):
         print("LOOP OUT")
         
     def StoreData(self, data):
+        print("STORE DATA !!!")
         self.data = data
         if data != []:
             # stop the scope while the main loop write the data in a file

@@ -197,7 +197,7 @@ class FeedbackTab(QtWidgets.QWidget):
         
                 ##### connect buttons
         
-        self.launch_feedback_btn.clicked.connect(lambda x : self.StartStopFeedback(x, "Feedback"))
+        #self.launch_feedback_btn.clicked.connect(lambda x : self.StartStopFeedback(x, "Feedback"))
         #self.launch_feedback_btn.setEnabled(True)
         
         self.stab_scan_btn = QtWidgets.QPushButton("Configure stabilized scan", self)
