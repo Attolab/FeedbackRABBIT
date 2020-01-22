@@ -85,6 +85,7 @@ class FeedbackLoop(QtCore.QObject):
         self.mutex.unlock()
         print("after initial unlock mutex")
         
+        '''
         ######## measure delay offset #########
         
         tau_s = self.lockingPos*10**(-9)/self.c_m_s
@@ -95,13 +96,30 @@ class FeedbackLoop(QtCore.QObject):
         Dphi0 = self.Arctoperator(V10, V20, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])
         
         self.offsetDelay = Dphi0/self.a        
-        
+        '''
         
         
         
         for ii in range(self.tMax):
             print("")
             print("RUN = ", self.run)
+            
+            ######## measure delay offset #########
+ 
+            self.lockingPos = float(self.tab3.locking_position_display.text())
+            
+            tau_s = self.lockingPos*10**(-9)/self.c_m_s
+            
+            V10 = self.SB_0noise(tau_s, self.SBParam[0], self.SBParam[2], self.SBParam[4])
+            V20 = self.SB_0noise(tau_s, self.SBParam[1], self.SBParam[3], self.SBParam[5])
+            
+            Dphi0 = self.Arctoperator(V10, V20, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])
+            
+            self.offsetDelay = Dphi0/self.a     
+            
+            print("delay offset = ", self.offsetDelay)
+       
+            self.tab3.shapedErrorPlotDraw()        
             
             if not self.run:
                 #self.StoreData([])
@@ -127,12 +145,13 @@ class FeedbackLoop(QtCore.QObject):
             # read scope 
             
             while self.data == []:
-                #print("waiting 1")
+                #print("waiting for data")
                 self.thread().msleep(100)
                 if not self.run:
                     break
-                
-            self.requestScopeMemoryClear.emit()               
+             
+            # 21-01-2020 : same as in scan loop, we removed the clear scope command
+            #self.requestScopeMemoryClear.emit()               
 
             smarActPos = self.tab3.stageWidget.PositionNmLCD.value()     
             
@@ -206,7 +225,7 @@ class FeedbackLoop(QtCore.QObject):
                 #print("Dphi calculated with test signals = " +str(Dphi))
                 
             self.tab3.errorValue = Dphi/self.a - self.offsetDelay
-            print("error value = "+str(self.errorValue))
+            print("error value = "+str(self.tab3.errorValue))
             #self.thread().msleep(1000)
             
             
@@ -231,12 +250,13 @@ class FeedbackLoop(QtCore.QObject):
             ################# move ############################
             
             
-            if self.tab3.errorValue < self.maxError:
+            if abs(self.tab3.errorValue) < self.maxError:
+                print("move smaract")
                 # freeze this loop while the stage is not at destination :
                 #print('start motion')
                 self.mutex.lock()
                 #print("mutex")
-                self.requestFeedbackMotion.emit(self.command)
+                self.requestFeedbackMotion.emit(self.command)  # %2 because of the delay stage configuration
                 #print("after request move")
                 self.smarActStopCondition.wait(self.mutex)
                 #print("after .wait in feedback")
@@ -277,6 +297,10 @@ class FeedbackLoop(QtCore.QObject):
             
         self.feedbackFinished.emit()
         self.tab3.feedback_time = 0
+        
+        # 21-01-2020
+        #self.tab3.stepOfStabScanFinished.emit()
+        
         print("LOOP OUT")
     def StoreData(self, data):
         self.data = data

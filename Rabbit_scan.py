@@ -12,6 +12,7 @@ Complete integratio of the smaract delay line and the Lecoy waverunner oscillosc
 from SmarAct_f import StageWidget
 import sys
 import os
+import time
 
 import PyQt5.QtCore as QtCore
 from PyQt5 import QtWidgets
@@ -86,24 +87,41 @@ class ScanningLoop(QtCore.QObject):
             #print("after .wait in scan")
             self.mutex.unlock()
             
+
             # allow data emition fro mthe scopeWidget
             self.requestEmitDataReconnection.emit()
+            #print("EmitData reconnection requested")
             # trigger scope
             self.setScopeMode.emit(0)
-            
+            self.thread().msleep(300)         
             # read scope
-            
+            #print("data = ",self.data)
             while self.data == []:
+                #print("in loop ... ")
                 self.thread().msleep(100)
-                print('Waiting data')
+                #time.sleep(0.1)
+                print('Waiting for data')
                 if not self.run:
                     print("BREAK LOOP data")
                     break
 
-            self.requestScopeMemoryClear.emit()
+            print("... after loop")
+            '''
+            loop = True
+            while loop:
+                print("in loop ... ")
+                if len(self.data)!=0:
+                    loop = False
+                self.requestEmitDataReconnection.emit()
+                self.thread().msleep(300)   
+            
+            '''
+            # 20 - 01 - 2020   stopped to use scope memory clear maybe?
+            #self.requestScopeMemoryClear.emit()
             
             
             if self.run:
+                
             #write data to file
                 index = str(ii)
                 index = (4-len(index)) * "0" + index
@@ -124,7 +142,7 @@ class ScanningLoop(QtCore.QObject):
         print("LOOP OUT")
         
     def StoreData(self, data):
-        print("STORE DATA !!!")
+        print("len data stored = ", len(data))
         self.data = data
         if data != []:
             # stop the scope while the main loop write the data in a file

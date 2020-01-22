@@ -32,7 +32,8 @@ class handling the scan operations
 class ScanningStabLoop(QtCore.QObject):
     scanStabFinished = QtCore.pyqtSignal()
     requestSSMotion = QtCore.pyqtSignal(int)  #signal request stabilized scan step
-    requestStopSSMotion = QtCore.pyqtSignal()
+    #requestStopSSMotion = QtCore.pyqtSignal()
+    launchFeedbackSignal = QtCore.pyqtSignal(int)
     changeTimeSignal = QtCore.pyqtSignal()  #new remaining time required
     requestScopeMemoryClear = QtCore.pyqtSignal()
     setScopeMode = QtCore.pyqtSignal(int)
@@ -50,7 +51,7 @@ class ScanningStabLoop(QtCore.QObject):
         if direction == "Backward":
             self.step = -self.step
         
-        self.start = middle - (self.step*self.nbrOfPoints)/2
+        self.start = int(middle - (self.step*self.nbrOfPoints)/2)
         self.stabPos = self.start  #position where to stabilize the interferometer
         self.folder = folder
         self.data = []
@@ -61,7 +62,7 @@ class ScanningStabLoop(QtCore.QObject):
         # start the scanning loop
         self.SSrun = True
         
-        self.nextStepAllowed = False
+        self.nextStepAllowed = True
         
         self.scanStabTime = 0  #in number of steps
         
@@ -69,8 +70,11 @@ class ScanningStabLoop(QtCore.QObject):
 
     def Run(self):
         # move to the intial position and wait until initial position is reached
-        '''
+        #self.requestSSMotion.emit(self.stabPos)
+        self.launchFeedbackSignal.emit(self.stabPos)
+        
         print("begin Scan Stab Run")
+        '''
         self.mutex.lock()
         print("after mutex lock")
         self.requestSSMotion.emit(self.stabPos)
@@ -80,7 +84,10 @@ class ScanningStabLoop(QtCore.QObject):
         self.mutex.unlock()
         print("after unlock mutex")
         '''
-        for ii in range(self.nbrOfPoints):
+        self.thread().msleep(1000)
+        
+        
+        for ii in range(self.totalDuration):
 #            # clear scope memory
 #            print('clear memory')
 #            self.requestScopeMemoryClear.emit()
@@ -93,29 +100,41 @@ class ScanningStabLoop(QtCore.QObject):
             #self.mutex.lock()
             print("begin scan stab step")
             
-            
-            
-            self.requestSSMotion.emit(self.stabPos)
+            feedbackTime = self.tab3.feedback_time
+            print("lock position = ", self.stabPos)            
+
 
             ################ wait during step duration ##################
             #self.thread().msleep(self.stepDuration*1000)  #in milliseconds
+            
+            if (feedbackTime%self.stepDuration == 0) and (feedbackTime != 0):  #request step when the number of acq. per step is reached
+
+                self.requestSSMotion.emit(self.stabPos)                
+                self.stabPos = self.tab3.stageWidget.PositionNmLCD.value() + self.step
+                self.changeTimeSignal.emit()
+                print("recquire new stab scan locking pos")
+                
+                self.thread().msleep(1000)
+            self.thread().msleep(500)                
+            '''
             while not self.nextStepAllowed:
                 print("waiting for next step allowance")
                 self.thread().msleep(100)
                 if not self.SSrun:
                     break
+            '''
             #python internal clock
             #self.requestStopSSMotion.emit()
-            self.nextStepAllowed = False
+            #self.nextStepAllowed = False
             
             #self.smarActStopCondition.wait(self.mutex)
-            print("after .wait in scan stab")
+            #print("after .wait in scan stab")
             #self.mutex.unlock()
             
-            self.stabPos = self.tab3.stageWidget.PositionNmLCD.value() + self.step
+            #self.stabPos = self.tab3.stageWidget.PositionNmLCD.value() + self.step
             
             
-            self.changeTimeSignal.emit()
+
             
             # allow data emition fro mthe scopeWidget
             #self.requestEmitDataReconnection.emit()
@@ -145,8 +164,12 @@ class ScanningStabLoop(QtCore.QObject):
             '''
             self.scanStabTime += self.stepDuration
             
+            
+            # 21-01-2020
+            #self.tab3.stepOfStabScanFinished.emit()
+            
         self.scanStabFinished.emit()
-        
+        print("end of the scan stab loop")
         
 
         
@@ -174,7 +197,7 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
         self.setupUi(self)
         
         self.tab3 = Tab3
-        self.stepDurationSpinBox.setValue(10)  #by default 10 s steps
+        self.stepDurationSpinBox.setValue(10)  #by default 10 acq. steps
         
         self.centralPosSpinBox.setValue(1000)
         self.stepSizeSpinBox.setValue(20)
@@ -247,7 +270,25 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
                 self.scanningStabLoop.Stop()
                 #self.EndOfStabScan()
 
-        
+    def launchFeedback(self, position):
+        self.tab3.locking_position_display.setText(str(position))   
+        self.tab3.shapedErrorPlotDraw()
+        self.tab3.tMax = 100000
+         
+        if self.mode == "test scan stab":        
+            self.tab3.testStabScanBtnClicked.emit(True)
+            self.tab3.launch_feedback_test_btn.setChecked(True)
+            print("after launch btn checked")
+        if self.mode == "scan stab":
+            self.tab3.stabScanBtnClicked.emit(True)
+            self.tab3.launch_feedback_btn.setChecked(True)
+            print("after checked button true")   
+                 
+         
+    def changeLockPos(self, position):
+        self.tab3.locking_position_display.setText(str(position))         
+    
+    ''' 
     def stabilize_at(self, position):
         
         
@@ -263,7 +304,7 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
             self.tab3.stabScanBtnClicked.emit(True)
             self.tab3.launch_feedback_btn.setChecked(True)
             print("after checked button true")           
-            
+            '''
 
     def stopStabilize(self):
         self.tab3.launch_feedback_test_btn.setChecked(False)
@@ -314,10 +355,11 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
 
     def ConnectScanStabSignals(self):
         
-        self.scanningStabLoop.requestSSMotion.connect(self.stabilize_at)
+        self.scanningStabLoop.requestSSMotion.connect(self.changeLockPos)
         
-        self.scanningStabLoop.requestStopSSMotion.connect(self.stopStabilize)
+        #self.scanningStabLoop.requestStopSSMotion.connect(self.stopStabilize)
         
+        self.scanningStabLoop.launchFeedbackSignal.connect(self.launchFeedback)
         
         self.scanningStabLoop.changeTimeSignal.connect(self.changeTimeDisplay)
         self.tab3.stepPercentSignal.connect(self.changeProgressBar)
@@ -353,7 +395,7 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
     
     def DisconnectScanStabSignals(self):
         self.scanningStabLoop.requestSSMotion.disconnect()
-        self.scanningStabLoop.requestStopSSMotion.disconnect()
+        #self.scanningStabLoop.requestStopSSMotion.disconnect()
         #self.stageWidget.smarActReader.motionEnded.disconnect()
         #self.scanningLoop.requestScopeMemoryClear.disconnect()
         self.scanningStabThread.started.disconnect()

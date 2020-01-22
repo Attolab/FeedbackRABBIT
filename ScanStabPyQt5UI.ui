@@ -179,7 +179,7 @@
      <item>
       <widget class="QLineEdit" name="dataFolderEdit">
        <property name="text">
-        <string>C:\Users\mluttmann\Documents\Python Scripts\data\monscan</string>
+        <string>C:\Users\Public\Documents\Python Scripts\RASTA\data\data_scan_feedback</string>
        </property>
       </widget>
      </item>

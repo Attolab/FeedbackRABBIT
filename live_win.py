@@ -179,7 +179,7 @@ class LiveTab(QtWidgets.QWidget):
              
             self.tof2int(data) 
 
-            #print("self.BGVector_points = " +str(self.BGVector_points))
+            print("self.BGVector_points = " +str(self.BGVector_points))
             #print("len data = " +str(len(data[1])))
             BG_intensity = np.trapz(data[1][self.BGVector_points[0]:self.BGVector_points[1]])/abs(self.BGVector_points[1]-self.BGVector_points[0])
             #print("data[1][self.BGVector_points[0]] = "+str(data[1][self.BGVector_points[0]]))
@@ -192,19 +192,19 @@ class LiveTab(QtWidgets.QWidget):
             #SB_intensity =  np.trapz(data[1][self.SBVector_points[0]:self.SBVector_points[1]])/abs(self.SBVector_points[1]-self.SBVector_points[0]) \
                    # - BG_intensity
             SB_intensity = np.trapz(shaped_data[self.SBVector_points[0]:self.SBVector_points[1]])/abs(self.SBVector_points[1]-self.SBVector_points[0])
-            #print("self.SBVector_points = " +str(self.SBVector_points))
+            print("self.SBVector_points = " +str(self.SBVector_points))
             #print("SB_intensity = "+str(SB_intensity))                     
             
             #Harm_intensity = np.trapz(data[1][self.HarmVector_points[0]:self.HarmVector_points[1]])/abs(self.HarmVector_points[1]-self.HarmVector_points[0]) \
                     #- BG_intensity
             Harm_intensity = np.trapz(shaped_data[self.HarmVector_points[0]:self.HarmVector_points[1]])/abs(self.HarmVector_points[1]-self.HarmVector_points[0])
-            #print("self.HarmVector_points = " +str(self.HarmVector_points))
+            print("self.HarmVector_points = " +str(self.HarmVector_points))
             #print("data[1][self.HarmVector_points[0]] = "+str(data[1][self.HarmVector_points[0]]))
             #print("Harm_intensity = "+str(Harm_intensity))             
             
             self.intensityRatio = abs(SB_intensity/Harm_intensity)            
             
-            #print("intensity ratio = " +str(self.intensityRatio))
+            print("intensity ratio = " +str(self.intensityRatio))
             
         le = len(self.live_time_data)  #size of the window adapted to the period
         if le < 30:
@@ -230,6 +230,8 @@ class LiveTab(QtWidgets.QWidget):
         Max3 = max(self.live_ratio_data)
         y_min3 = Min3 - 0.00001
         y_max3 = Max3 + 0.00001
+        
+        #print("y_min, y_max", y_min3, y_max3)
         '''
         if Min3>0:
             y_min3 = 0.99*Min3
