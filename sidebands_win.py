@@ -65,10 +65,11 @@ class SidebandsTab(QtWidgets.QWidget):
         self.fit_SB1 = []  #cosine fit of sidebands
         self.fit_SB2 = []
 
-
+        self.a = 0.
+        self.b = 0.
         
         self.data_x_nm=[]  #list of delay values converted in nm
-        self.list_error = []   #error signal extracted from the parameters above (O1, O2, A1, A2, etc.) 
+        self.list_phi_calib = []   #error signal extracted from the parameters above (O1, O2, A1, A2, etc.) 
         self.list_error_wrapped = [] #error signal without the unwrap operation
         
         self.O1 = 0.  #offset of the fitted sideband
@@ -130,6 +131,9 @@ class SidebandsTab(QtWidgets.QWidget):
         self.errorPlotAxis = self.errorPlotFigure.add_subplot(111)
         self.errorPlotCanvas = FigureCanvas(self.errorPlotFigure)             
         self.errorPlotAxis.clear()
+        
+        nav = NavigationToolbar2QT(self.errorPlotCanvas, self)
+        nav.setStyleSheet("QToolBar { border: 0px }")
         
         
         self.importdata_btn = QtWidgets.QPushButton("Load RABBIT scan", self)
@@ -226,6 +230,7 @@ class SidebandsTab(QtWidgets.QWidget):
         signalLayout.addWidget(paramGroupBox,2,0)
         signalLayout.addWidget(self.error_plot_btn, 3, 0)
         signalLayout.addWidget(self.errorPlotCanvas, 4, 0)
+        signalLayout.addWidget(nav, 5, 0)        
        
         box2.addLayout(signalLayout,0,1)
         
@@ -484,19 +489,26 @@ class SidebandsTab(QtWidgets.QWidget):
     
     def errorPlotDraw(self): #displays the error signal
         
-        ddphi = self.dphi - np.pi/2
+
         self.errorPlotAxis.clear()
-        self.list_error = []
+        self.list_phi_calib = []
         self.list_error_wrapped = []
         
         list_error_fit = []
         
-        self.list_error = np.unwrap(np.arctan2(
+       
+        self.list_phi_calib = np.unwrap(np.arctan2(
             (self.retrieved_SB1 - self.O1)/self.A1,
             (self.retrieved_SB2 - self.O2)/self.A2
         ))
-        
-        
+       
+        '''
+        self.list_phi_calib = np.arctan2(
+            (self.retrieved_SB1 - self.O1)/self.A1,
+            (self.retrieved_SB2 - self.O2)/self.A2
+        )   
+        '''
+
         listcos =[]
         for elt in self.retrieved_SB2:
             listcos.append((elt - self.O2)/self.A2)
@@ -518,17 +530,33 @@ class SidebandsTab(QtWidgets.QWidget):
             self.data_x_nm.append(elt*self.scan_step)
             
             
-        self.param_lin, cov = optimize.curve_fit(self.lin_fit, self.data_x, self.list_error)
+        self.param_lin, cov = optimize.curve_fit(self.lin_fit, self.data_x, self.list_phi_calib)
+
+        print(self.param_lin)
+        self.a = self.param_lin[0]/self.scan_step
+        self.b = self.param_lin[1]
         
+        linFit = self.lin_fit(self.data_x, self.param_lin[0], self.param_lin[1])
         
+        #self.errorPlotAxis.plot(self.data_x_nm, self.list_phi_calib, label= "Error signal")
+        #self.errorPlotAxis.plot(self.data_x_nm, list_error_fit, 'k--', label="Error signal extracted from cosine fit", )
+        #self.errorPlotAxis.plot(self.data_x_nm, linFit, label= "Linear fit of the error signal") 
         
+        self.errorPlotAxis.plot(self.data_x_nm, [(elt-np.pi)%(2*np.pi)-np.pi for elt in self.list_phi_calib], label= "(unwrap-pi)%(2 pi) - pi)")
+        self.errorPlotAxis.plot(self.data_x_nm, self.list_error_wrapped, label= "data without unwrapping") 
         
-        self.errorPlotAxis.plot(self.data_x_nm, self.list_error, label= "Error signal")
-        self.errorPlotAxis.plot(self.data_x_nm, list_error_fit, 'k--', label="Error signal extracted from cosine fit", )
-        self.errorPlotAxis.plot(self.data_x_nm, self.lin_fit(self.data_x, self.param_lin[0], self.param_lin[1]), label= "Linear fit of the error signal")  
-        print("a ="+str(self.param_lin[0]))
+        self.errorPlotAxis.plot(self.data_x_nm, [(x*self.a+self.b -np.pi)%(2*np.pi)-np.pi for x in self.data_x_nm], label = "(line-pi)%(2 pi) - pi)")
+        
+        print("a, b =", str(self.param_lin[0]), str(self.param_lin[1]))
         self.errorPlotAxis.set_ylabel("Error signal", fontsize=10)
         self.errorPlotAxis.set_xlabel("Delay (nm)", fontsize=10)
         self.errorPlotAxis.legend(loc='best')
+        self.errorPlotAxis.grid(True)
         self.errorPlotCanvas.draw()
         
+    '''
+    def phi_calib(self, tau): #tau in nm
+        a = self.param_lin[0]/self.scan_step  #slope in rad/nm
+        b = self.param_lin[1]
+        return a*tau + b
+        '''

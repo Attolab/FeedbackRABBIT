@@ -63,7 +63,7 @@ class FeedbackTab(QtWidgets.QWidget):
         
         self.locking_position = 1000
         
-        self.max_error = 25  #(nm)
+        self.max_error = 100.  #(nm)
         
         self.feedback_time = 0.   #increments +1 at each feedback step
         
@@ -481,8 +481,8 @@ class FeedbackTab(QtWidgets.QWidget):
         return np.random.normal(1, noise)*(O + A*np.cos(4*self.tab2.omega*tau + phi))
       
     
-    def lindrift(self, t, t0, drift_speed ):  #in nm
-        return t0 + drift_speed*t 
+    def lindrift(self, t, drift_speed ):  #in nm
+        return drift_speed*t 
         
     def oscilldrift(self, t, t0, freq, amp):  # in nm
         return t0 + amp*np.sin(2*np.pi*freq*t) 
@@ -499,7 +499,7 @@ class FeedbackTab(QtWidgets.QWidget):
             if diff<Min:
                 Min =  diff
                 index = i
-        print("Closest array position = " +str(List[index]))
+        #print("Closest array position = " +str(List[index]))
         return index
 
    
@@ -535,7 +535,7 @@ class FeedbackTab(QtWidgets.QWidget):
         #self.shapedErrorPlotAxis.axvline(x = self.tab2.data_x_nm[self.Range[1]], linestyle='--', color = 'black')
         self.shapedErrorPlotAxis.plot(self.tab2.data_x_nm, self.list_error2)
         self.shapedErrorPlotAxis.plot(self.tab2.data_x_nm, self.lin_error_signal)
-        print("a = "+str(self.tab2.param_lin[0]))
+        #print("a = "+str(self.tab2.param_lin[0]))
         self.shapedErrorPlotAxis.set_ylim([-np.pi,np.pi])
         self.shapedErrorPlotAxis.set_xlim([lock-200, lock+200])
         self.shapedErrorPlotAxis.grid(True)
@@ -669,30 +669,35 @@ class FeedbackTab(QtWidgets.QWidget):
     def testSignalsPlot(self):
        self.signal_noise = float(self.signal_noise_display.text())
        TAU = np.linspace(self.tab2.data_x_nm[0], self.tab2.data_x_nm[-1], 400)
+       
        Y1 = []
        Y2 = []
        
-       
+
        for elt in TAU:
            elt = elt*10**(-9)/(self.tab2.c_m_s)  #converts X in time array
            Y1.append(self.SB_noisy(elt, self.tab2.O1, self.tab2.A1, self.tab2.phi1, self.signal_noise))
            Y2.append(self.SB_noisy(elt, self.tab2.O2, self.tab2.A2, self.tab2.phi2, self.signal_noise))
-           
+            
            #with perfect phase quadrature
            #Y2.append(self.SB(elt, self.tab2.O2, self.tab2.A2, self.tab2.phi1-np.pi/2, self.signal_noise))
-    
 
+ 
+ 
        fig = plt.figure("Shape of test signals")  
        ax = fig.add_subplot(1, 1, 1)
+       
        ax.plot(TAU, Y1, label="Test signal SB1", color="green")
        ax.plot(TAU, Y2, label="Test signal SB2", color="red")
        
+       ax.plot(TAU, TAU+10)
        ax.set_ylabel("Signal (V)", fontsize=10)
        ax.set_xlabel("Delay (nm)", fontsize=10)
        ax.legend(loc='best')
        
        plt.show()
-       
+    
+
        
 
        

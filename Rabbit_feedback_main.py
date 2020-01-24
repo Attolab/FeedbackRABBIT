@@ -343,7 +343,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             #self.scopeWidget.triggerModeComboBox.setCurrentIndex(3)
             self.tab1.scopeWidget.ClearSweeps()
             # create a scanning loop
-            self.tab3.SBParam = [self.tab2.O1, self.tab2.O2,  self.tab2.A1, self.tab2.A1, self.tab2.phi1, self.tab2.phi2]
+            self.tab3.SBParam = [self.tab2.O1, self.tab2.O2,  self.tab2.A1, self.tab2.A2, self.tab2.phi1, self.tab2.phi2]
             self.tab3.a = self.tab2.param_lin[0]/self.tab2.scan_step
             
             self.tab3.Kp = float(self.tab3.Kp_display.text())

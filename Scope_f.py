@@ -83,7 +83,7 @@ class ScopeReader(QtCore.QObject):
         self.dataPointsNbr = nbr
 
     def ReadWaveform(self):
-        print("ReadWaveform begins")
+        #print("ReadWaveform begins")
         # update the sweep value recorded in the progress bar
         self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] +""".Out.Result.Sweeps' """)
         # read the waveform
@@ -93,7 +93,7 @@ class ScopeReader(QtCore.QObject):
             if len(waveform[0]) > 1:
             # emit non-emtpy data only
                 self.dataRecieved.emit(waveform)
-                print("dataReceived emit")
+                #print("dataReceived emit")
     #######################################################################################        
     def ReadParameters(self):
         #update parameters such as Verscale, Horscale, etc.....
@@ -159,8 +159,10 @@ class ScopeReader(QtCore.QObject):
                 self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.AcquiredSegments'""")  
                 #acquiredSegments = self.scope.ReadString(50)
                 #print("acquired segments =" +str(self.acquiredSegments))
+                self.thread().msleep(100)
                 if self.acquiredSegments == self.numSegments:
                     #print("all segments acquired")
+                    self.thread().msleep(100)
                     self.ReadWaveform()
                     self.ReadParameters()
                     loop = False
@@ -387,7 +389,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
     def TransmitData(self, data):
         #if self.sweepsProgressBar.value() >= 1:
         self.emitData.emit(data)
-        print("TransmitData")
+        #print("TransmitData")
         
     def quitScope(self):
         self.reader.acquiredSegments = self.reader.numSegments
