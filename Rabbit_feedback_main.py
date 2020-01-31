@@ -51,7 +51,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.setWindowTitle("RABBIT Active Stabilization")
         self.setWindowIcon(QIcon("icon_rasta.png") )
         
-        self.setGeometry(100, 100, 1510, 1000)
+        self.setGeometry(50, 25, 1610, 1000)
         
         
         self.mutex = QtCore.QMutex()
@@ -84,6 +84,8 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         
         self.tab3.testStabScanBtnClicked.connect(lambda x : self.StartStopFeedback(x, "Test Feedback"))
         self.tab3.stabScanBtnClicked.connect(lambda x : self.StartStopFeedback(x, "Feedback"))
+
+        #self.tab3.locking_position_display.returnPressed.connect(self.bou)
         
         self.show()
         
@@ -110,7 +112,8 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab3.updateFeedbackScreens(data, scale_x, scale_y, x_offset, y_offset)
 
         self.tGlob += 1
-
+        
+        self.ConnectDisplay()   
   
     ################################## RABBIT scan ############################################
         
@@ -139,27 +142,28 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
                 
     def ForwardData(self, data):
         
-        print("")
-        print("ForwardData")
-        print("")
+        #print("")
+        print("fd")
+        #print("")
         
         if self.tab1.scanWidget.startScanPushButton.isChecked():
             # during a scan : transmit the data to the scanningLoop object and disable the conection to prevent multiple acquisition at a single delay
             self.scanningLoop.StoreData(data)
             #print("order given to store the data in ForwardData")
-            self.tab1.scopeWidget.emitData.disconnect()
+            #self.tab1.scopeWidget.emitData.disconnect()
             
         if self.tab3.launch_feedback_btn.isChecked():
-            self.tab1.scopeWidget.emitData.disconnect()
+            #self.tab1.scopeWidget.emitData.disconnect()
             self.feedbackLoop.StoreData(data)
         if self.tab3.launch_feedback_test_btn.isChecked():
 
-            self.tab1.scopeWidget.emitData.disconnect()
+            #self.tab1.scopeWidget.emitData.disconnect()
             self.feedbackLoop.StoreData(data)
             #print("feedback data stored")
         # send data to graphs
+        self.tab1.scopeWidget.emitData.disconnect() 
         self.DisplayAndStabilize(data)
-           
+          
     
     def StartStopScan(self, scanOn):
         if scanOn:
@@ -215,14 +219,14 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             self.tab1.scanWidget.startScanPushButton.blockSignals(False)
             
             self.scanningThread.exit()
-            print("2. exit scanningThread")           
+            #print("2. exit scanningThread")           
             
             #generates bug
             
             #wait for the thread exit before going on :
             while self.scanningThread.isRunning():
                 self.thread().msleep(500)
-                print("3. Wait for thread to exit")
+                #print("3. Wait for thread to exit")
   
         #reenable the user inteface
         
@@ -231,7 +235,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab1.scanWidget.scanGroupBox.setEnabled(True)
         self.tab1.scopeWidget.setEnabled(True)
         self.tab1.stageWidget.setEnabled(True)
-        print("4. reenables buttons") 
+        #print("4. reenables buttons") 
         
         
     def ConnectScanSignals(self):
@@ -253,7 +257,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     
     
     def ConnectDisplay(self):
-        print('connect display')
+        #print('connect display')
         self.tab1.scopeWidget.emitData.connect(self.ForwardData)
         #print('')
         
@@ -352,25 +356,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         
         
             self.tab3.PIDParam = [self.tab3.Kp, self.tab3.Ki, self.tab3.Kd, self.tab3.T]
-            
-            '''
-            # parameters: mode, tab3, lockingPos, SB_vector_int, BG_vector_int, SBParam, a, maxError, PIDParam, folder, tMax, feedbackNbr, errorValue
-            self.feedbackLoop  = FeedbackLoop(mode, 
-                                             self.tab3, 
-                                             self.tab1.stageWidget.PositionNmLCD.intValue(),
-                                             float(self.tab3.locking_position_display.text()),
-                                             self.tab2.SB_vector_int,
-                                             self.tab2.BG_vector_int,
-                                             self.tab3.SBParam,
-                                             self.tab3.a,
-                                             float(self.tab3.max_error_display.text()),
-                                             self.tab3.PIDParam,
-                                             self.tab3.storedatafolder,
-                                             self.tab3.tMax,
-                                             self.tab3.feedbackNbr,
-                                             self.tab3.errorValue)
-            '''
-            
+
             self.feedbackLoop  = FeedbackLoop(mode, self.tab1, self.tab2, self.tab3)
 
 
@@ -424,17 +410,20 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         
         # for stabilized scan: send signal when the feedback is over
         
-        self.tab3.stepOfStabScanFinished.emit()
-        print("stepOfStabScanFinished emitted")
+        #self.tab3.stepOfStabScanFinished.emit()
+        #print("stepOfStabScanFinished emitted")
 
 
     def ConnectFeedbackSignals(self):
-        self.feedbackLoop.requestFeedbackMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(int(self.tab1.stageWidget.PositionNmLCD.value() + x)))
+        self.feedbackLoop.requestFeedbackMotion.connect(lambda x : self.tab1.stageWidget.PositionNmSpinBox.setValue(int(self.tab1.stageWidget.PositionNmSpinBox.value() + x)))
         self.tab1.stageWidget.smarActReader.motionEnded.connect(self.feedbackLoop.smarActStopCondition.wakeAll)
+        #self.tab1.stageWidget.smarActReader.newPosition.connect(self.feedbackLoop.newPosSmarAct)
+        self.tab3.locking_position_display.returnPressed.connect(self.changeLock)
         # Allow the scanningLoop to set the scope trigger mode
         #self.scanningLoop.setScopeMode.connect(self.scopeWidget.triggerModeComboBox.setCurrentIndex)
         # Allow the scanningLoop to clear the scope memory after motion :
         self.feedbackLoop.requestScopeMemoryClear.connect(self.tab1.scopeWidget.ClearSweeps)
+        self.feedbackLoop.requestScopeBufferClear.connect(self.tab1.scopeWidget.ClearBuffer)
         # connect the scanning loop Run function to the scanning thread start
         self.feedbackThread.started.connect(self.feedbackLoop.Run)
         # connect the scanningLoop 
@@ -442,23 +431,37 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         # ... and wait for the end of the scan :
         self.feedbackLoop.feedbackFinished.connect(self.EndOfFeedback)
 
+        self.tab3.requestSSMotion.connect(lambda x : self.changeSSLock(x))
 
 
     def DisconnectFeedbackSignals(self):
         print("disconnect feedback signals")
         self.feedbackLoop.requestFeedbackMotion.disconnect()
         self.tab1.stageWidget.smarActReader.motionEnded.disconnect()
+        self.tab3.locking_position_display.returnPressed.disconnect()
         self.feedbackLoop.requestScopeMemoryClear.disconnect()
+        self.feedbackLoop.requestScopeBufferClear.disconnect()
         self.feedbackThread.started.disconnect()
         self.feedbackLoop.feedbackFinished.disconnect()
         self.ConnectDisplay()
+        self.tab3.requestSSMotion.disconnect()
+
+    def changeLock(self):
+        print("lock changed")
+        self.tab3.locking_position = float(self.tab3.locking_position_display.text())
+        self.feedbackLoop.lockingPos = float(self.tab3.locking_position_display.text())
 
 
+    def newPosSmarAct(self):
+        print("new pos displayed")
+        self.feedbackLoop.posDisplayed = True
+        
+    def changeSSLock(self, lockPos):
+        self.tab3.locking_position_display.setText(str(lockPos))
+        self.feedbackLoop.lockingPos = lockPos
+        self.feedbackLoop.requestScopeBufferClear.emit()
 
-
-
-
-     
+        self.feedbackThread.msleep(500)
 def main():
    
    app = QtWidgets.QApplication(sys.argv)

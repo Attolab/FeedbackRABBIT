@@ -25,9 +25,11 @@ class FeedbackTab(QtWidgets.QWidget):
     
     testStabScanBtnClicked = QtCore.pyqtSignal(bool)
     
-    stepOfStabScanFinished = QtCore.pyqtSignal()
+    feedbackStepFinished = QtCore.pyqtSignal()
     
     stepPercentSignal = QtCore.pyqtSignal(int)
+    
+    requestSSMotion = QtCore.pyqtSignal(int)
     
     
     def __init__(self, Tab1, Tab2):
@@ -104,7 +106,7 @@ class FeedbackTab(QtWidgets.QWidget):
         
         self.offset_error_signal = 0.
         
-        
+        self.stabScanNbr = 1  #for stabilize scans, we have to give a number to each of them
 
         ############################### interface ###############################################
        
@@ -178,7 +180,7 @@ class FeedbackTab(QtWidgets.QWidget):
         self.locking_position_display = QtWidgets.QLineEdit("{:.2f}".format(self.locking_position), self)
         self.locking_position_display.setMaximumWidth(80)
         
-        self.locking_position_display.textChanged.connect(self.shapeErrorSignal)
+        #self.locking_position_display.textChanged.connect(self.shapeErrorSignal)
         
         self.max_error_display = QtWidgets.QLineEdit("{:.2f}".format(self.max_error), self)
         self.max_error_display.setMaximumWidth(80)
@@ -506,7 +508,7 @@ class FeedbackTab(QtWidgets.QWidget):
     
     def shapeErrorSignal(self, locking_position):
         #self.listOfFlippedPoints = []
-        print(locking_position)
+        #print(locking_position)
         self.P = self.FindX(float(locking_position), self.tab2.data_x_nm)
         offset = self.tab2.list_error_wrapped[self.P]
         self.list_error2 = []
@@ -526,6 +528,7 @@ class FeedbackTab(QtWidgets.QWidget):
     
     def shapedErrorPlotDraw(self):
         lock = float(self.locking_position_display.text())
+        #lock = self.locking_position
         self.shapedErrorPlotAxis.clear()
         self.shapeErrorSignal(self.locking_position_display.text())
         #self.findRange()
@@ -533,7 +536,7 @@ class FeedbackTab(QtWidgets.QWidget):
         #print("Range = "+str(self.Range))
         #self.shapedErrorPlotAxis.axvline(x = self.tab2.data_x_nm[self.Range[0]], linestyle='--', color =  'black')
         #self.shapedErrorPlotAxis.axvline(x = self.tab2.data_x_nm[self.Range[1]], linestyle='--', color = 'black')
-        self.shapedErrorPlotAxis.plot(self.tab2.data_x_nm, self.list_error2)
+        self.shapedErrorPlotAxis.plot(self.tab2.data_x_nm, self.tab2.list_error_wrapped)
         self.shapedErrorPlotAxis.plot(self.tab2.data_x_nm, self.lin_error_signal)
         #print("a = "+str(self.tab2.param_lin[0]))
         self.shapedErrorPlotAxis.set_ylim([-np.pi,np.pi])
@@ -757,8 +760,6 @@ class FeedbackTab(QtWidgets.QWidget):
             return
     
         stab_scan_widget = Rabbit_scan_stab.ScanStabWidget(self, "scan stab")
-        stab_scan_widget.mvtTypeComboBox.addItem("Forward") #impossible to put this command in the scan ui file, I don't know why
-        stab_scan_widget.mvtTypeComboBox.addItem("Backward")
         
         dialog = QtWidgets.QDialog()
         

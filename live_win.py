@@ -29,8 +29,6 @@ class LiveTab(QtWidgets.QWidget):
         self.stageWidget = StageWidget()
         self.scanWidget = ScanWidget()
         
-        self.scanWidget.mvtTypeComboBox.addItem("Forward") #impossible to put this command in the scan ui file, I don't know why
-        self.scanWidget.mvtTypeComboBox.addItem("Backward")
         
         self.nbr_clicks_SB = 0
         self.nbr_clicks_Harm = 0
@@ -80,7 +78,7 @@ class LiveTab(QtWidgets.QWidget):
 
         imageWidget.setPixmap(scaledpix)
         imageWidget.setParent(self)
-        imageWidget.move(1180,650)
+        imageWidget.move(1280,650)
         
         emptywidget = QtWidgets.QLabel()
         
@@ -135,7 +133,7 @@ class LiveTab(QtWidgets.QWidget):
 
         bottomLabel = QtWidgets.QLabel("RASta (RABBIT Active Stabilisation) - ATTOLab - CEA - 2019")
         bottomLabel.setParent(self) 
-        bottomLabel.move(1200,715)
+        bottomLabel.move(1300,715)
         
         
         box.addLayout(winLayout)
@@ -211,7 +209,9 @@ class LiveTab(QtWidgets.QWidget):
             self.live_time_data.append(self.live_time_data[-1]+1)
             #print("intensity ratio = " +str(self.intensityRatio))
             self.live_ratio_data.append(self.intensityRatio)
+  
         else:
+
             for i in range(le):
                 self.live_time_data[i] += 1
             for i in range(le-1):

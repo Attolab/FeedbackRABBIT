@@ -432,7 +432,7 @@ class SidebandsTab(QtWidgets.QWidget):
         
         self.dphi = params1[2]-params2[2]
         
-        
+        print("param1, param2 = ", params1, params2)    
         
         for i in range(self.n):
             self.fit_SB1.append(self.cosine(self.data_x[i], params1[0], params1[1], params1[2]))

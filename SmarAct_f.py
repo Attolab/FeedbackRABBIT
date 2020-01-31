@@ -202,6 +202,7 @@ class SmarActReader(QtCore.QObject):
         timeout = 1000
         self.struct = DataPacketStructure(1,1,1,1,1,1)
         # reading loop : the SmarAct controler sends information by packets
+        self.Pos = 0
         while self.isRunning:
             # 1) read packet
             status = SmaractDll.SA_ReceiveNextPacket_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(timeout), ctypes.byref(self.struct))
@@ -218,6 +219,7 @@ class SmarActReader(QtCore.QObject):
             elif self.struct.packetType == 2:
 #                print "Channel " + str(struct.channelIndex) + " is at position : " + str(struct.data2) + " nm"
                 self.newPosition.emit(self.struct.data2)
+                self.Pos = self.struct.data2
                 #print(self.struct.data2)
             #elif self.struct.packetType == 3:
                 #print("report = ", self.report)
@@ -234,7 +236,7 @@ class SmarActReader(QtCore.QObject):
             elif self.struct.packetType == 12:
                 print("Channel " + str(self.struct.channelIndex) + "'s speed has been set to " + str(self.struct.data1) + " nm/s")
             # pause loop
-            self.thread().msleep(100)
+            self.thread().msleep(10)
         # 
         self.thread().exit()
 
@@ -398,6 +400,7 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
             # disable the Controler selection ComboBox and enable the groupbox
             self.StageGroupBox.setEnabled(True)
             self.ControlerComboBox.setEnabled(False)
+            self.inputsFrame.setEnabled(True)
             self.StageGroupBox.setTitle('ON')
             return status
     
@@ -405,27 +408,10 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
         channelIndex = self.ChannelComboBox.currentIndex() - 1
         status = SmaractDll.SA_CalibrateSensor_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(channelIndex))
         return status
-    '''    
+
+
     def FindReference(self):
-        channelIndex = self.ChannelComboBox.currentIndex() - 1
-        direction = 0   # SA_FORWARD_DIRECTION
-        if self.setHoldPushButton.isChecked():
-            holdTime = 60000
-        else:
-            holdTime = 0
-            
-        autoZero = 1
-        status = SmaractDll.SA_FindReferenceMark_A(ctypes.c_ulong(self.systemIndex), 
-                                                    ctypes.c_ulong(channelIndex),
-                                                    ctypes.c_ulong(direction),
-                                                    ctypes.c_ulong(holdTime),
-                                                    ctypes.c_ulong(autoZero))
-        
-        self.PositionNmSpinBox.setValue(0)   #the new position is 0 after FindReference
-        self.PositionFsSpinBox.setValue(0)
-        return status
-        '''  
-    def FindReference(self):
+        #print("Find ref")
         channelIndex = self.ChannelComboBox.currentIndex() - 1
         direction = 0   # SA_FORWARD_DIRECTION
         
@@ -450,7 +436,7 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
         return status
     
     def GotoPositionAbsolute(self, position):
-        #print("begin go to position")
+        #print("go to position")
         #get the position during feedback
         SmaractDll.SA_GetPosition_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(self.smarActReader.channelIndex))
         self.smarActReader.newPosition.emit(self.smarActReader.struct.data2)

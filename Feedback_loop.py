@@ -26,6 +26,7 @@ class FeedbackLoop(QtCore.QObject):
     feedbackFinished = QtCore.pyqtSignal()
     requestFeedbackMotion = QtCore.pyqtSignal(int)
     requestScopeMemoryClear = QtCore.pyqtSignal()
+    requestScopeBufferClear = QtCore.pyqtSignal()
     setScopeMode = QtCore.pyqtSignal(int)
     requestEmitDataReconnection = QtCore.pyqtSignal()
     def __init__(self, mode, tab1, tab2, tab3):   
@@ -51,7 +52,7 @@ class FeedbackLoop(QtCore.QObject):
         self.maxError = float(self.tab3.max_error_display.text())
         self.tMax = self.tab3.tMax
         self.PIDParam = self.tab3.PIDParam  #PIDParam = [Kp, Ki, Kd, T]
-        self.folder = self.tab3.storedatafolder
+        
   
         self.c_m_s = 3*10**8
         self.omega = 2.35*10**(15) 
@@ -74,11 +75,13 @@ class FeedbackLoop(QtCore.QObject):
 
         # start the scanning loop
         self.run = True
+        
+        self.posDisplayed = False
 
     def Run(self):
         
 
-        
+        self.lockingPos = float(self.tab3.locking_position_display.text())         
         ############# first move to the intial position and wait until initial position is reached
         
         #print("begin Run")
@@ -89,15 +92,18 @@ class FeedbackLoop(QtCore.QObject):
         self.smarActStopCondition.wait(self.mutex)
         #print("after smaractstopcondition wait")
         self.mutex.unlock()
-        print("after initial unlock mutex")
+        #print("after initial unlock mutex")
 
 
         self.thread().msleep(1000)    
         delta_tau = 0.
-        tau_t = self.tab3.stageWidget.PositionNmLCD.value()  #initial value of tau_t, at the begining of the feedback
+        smarActPos = self.tab3.stageWidget.PositionNmLCD.value() 
+        tau_t = self.lockingPos  #initial value of tau_t, at the begining of the feedback
         delay_drift = 0.
         print("initial tau_t = ", tau_t)
         
+        self.lockingPos = float(self.tab3.locking_position_display.text())  #initial locking delay
+
         
         for ii in range(self.tMax):
             #print("")
@@ -109,30 +115,29 @@ class FeedbackLoop(QtCore.QObject):
                 break    
             
             
-            print("")
-            print("feedback time = "+str(self.tab3.feedback_time))
-            print("")              
-            print("a = ", self.a)            
+            #print("")
+            #print("feedback time = "+str(self.tab3.feedback_time))
+            #print("")              
+            #print("a = ", self.a)            
             ######## phase offset #########
  
-            self.lockingPos = float(self.tab3.locking_position_display.text())
             
-            print("lockingPos = ", self.lockingPos)
- 
-            smarActPos = self.tab3.stageWidget.PositionNmLCD.value()     
-            #print("smaract pos =", smarActPos) 
-            print("tau_t = ", tau_t)
+            #print("lockingPos = ", self.lockingPos)
+            
+
             
             tau_0 = self.lockingPos  #in nm
+            
+            #print(self.SBParam)
             
             V10 = self.SB_0noise(tau_0, self.SBParam[0], self.SBParam[2], self.SBParam[4])
             V20 = self.SB_0noise(tau_0, self.SBParam[1], self.SBParam[3], self.SBParam[5])
             
-            print("V10, V20 = ", V10, V20)     
+            #print("V10, V20 = ", V10, V20)     
             
             phi0 = self.Arctoperator(V10, V20, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])
 
-            print("phi0 = ", phi0)
+            #print("phi0 = ", phi0)
             
         
             self.tab3.shapedErrorPlotDraw()        
@@ -204,46 +209,50 @@ class FeedbackLoop(QtCore.QObject):
 
                 
                 ###### HERE !!!! ##############  need to think about the compensation shift
-                
+                self.tab3.signal_noise = float(self.tab3.signal_noise_display.text())
                 noise_level = self.tab3.signal_noise
                 
                 '''
                 V1_t = self.tab3.SB_noisy(tau_t, self.tab2.O1, self.tab2.A1, self.tab2.phi1, noise_level)
                 V2_t = self.tab3.SB_noisy(tau_t, self.tab2.O2, self.tab2.A2, self.tab2.phi2, noise_level)
                 '''
+
+                #print("rand = ",np.random.normal(1,noise_level))
+                V1_t = np.random.normal(1,noise_level)*self.SB_0noise(tau_t, self.SBParam[0], self.SBParam[2], self.SBParam[4])
+                V2_t = np.random.normal(1,noise_level)*self.SB_0noise(tau_t, self.SBParam[1], self.SBParam[3], self.SBParam[5])
                 
-                V1_t = self.SB_0noise(tau_t, self.SBParam[0], self.SBParam[2], self.SBParam[4])
-                V2_t = self.SB_0noise(tau_t, self.SBParam[1], self.SBParam[3], self.SBParam[5])
                 
-                
-                print("V1_t, V2_t = ", V1_t, V2_t)                
+                #print("V1_t, V2_t = ", V1_t, V2_t)                
                 
                 phi_t = self.Arctoperator(V1_t, V2_t, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])
             
-                print("phi_t calculated with test signals = " +str(phi_t))                
+                #print("phi_t = " +str(phi_t))                
                 
 
             
             dphi_t = phi_t - phi0 
             
-            print("dphi_t = ", dphi_t)
+            #print("dphi_t = ", dphi_t)
             
             # taking the "saw teeths" into account
             
-            if abs(dphi_t) > np.pi:  #???
+            dphi2_t = dphi_t
+            
+            if abs(dphi2_t) > np.pi:  #???
                 print("tooth")
-                if dphi_t > 0 :
-                    dphi_t -= 2*np.pi
-                if dphi_t < 0 :
-                    dphi_t += 2*np.pi
+                if dphi2_t > 0 :
+                    #print("if > 0")
+                    dphi_t-=2*np.pi
+                if dphi2_t < 0 :
+                    dphi_t+=2*np.pi
             
-            
+            #print("dphi_t = ", dphi_t)
             delay_shift = dphi_t/self.a
             
             
               
             self.tab3.errorValue = -delay_shift
-            print("error value = "+str(self.tab3.errorValue))
+            #print("error value = "+str(self.tab3.errorValue))
             #self.thread().msleep(1000)
             
             
@@ -260,29 +269,28 @@ class FeedbackLoop(QtCore.QObject):
             
             self.command = self.U[1]
             
-            #print("command = "+str(self.command))
-            #self.command = self.errorValue*self.PIDParam[0]
-            #print("command = "+str(self.command))
-            '''
-            if int(self.command) == 0:
-                self.command = int(self.command) + 1
-                #print("new command = "+str(self.command))
-            '''
+            #print("command = ", self.command)
+
             ################# move ############################
             
             
             if abs(self.tab3.errorValue) < self.maxError:
-                print("move smaract")
+                #print("move smaract")
                 # freeze this loop while the stage is not at destination :
                 #print('start motion')
+                self.posDisplayed = False
+                smarActPos = self.tab3.stageWidget.PositionNmLCD.value()
                 self.mutex.lock()
                 #print("mutex")
-                self.requestFeedbackMotion.emit(self.command)  # %2 because of the delay stage configuration
+                if self.mode == "Feedback":
+                    self.requestFeedbackMotion.emit(self.command/2)   # %2 because of the light goes back and forth in the delay line
+                if self.mode == "Test Feedback":
+                    self.requestFeedbackMotion.emit(self.command)  
                 #print("after request move")
                 self.smarActStopCondition.wait(self.mutex)
-                #print("after .wait in feedback")
+                #print("in mutex lock")
                 self.mutex.unlock()
- 
+  
                 '''
                 self.thread().msleep(500)
                 
@@ -301,13 +309,22 @@ class FeedbackLoop(QtCore.QObject):
                 self.tab3.drift_pos_display.display(delay_drift)
                 
 
-                self.thread().msleep(500)
                 
-                delta_tau = self.tab3.stageWidget.PositionNmLCD.value() - smarActPos
+            '''
+            while self.posDisplayed == False:
+                #print("loop")
+                self.thread().msleep(100)
+                '''
+            self.thread().msleep(100)    
+            #delta_tau = self.tab3.stageWidget.PositionNmLCD.value() - smarActPos
                 
-                tau_t += delta_tau 
+            delta_tau = int(self.command)  #????
                 
-                print("delta_tau = ", delta_tau)               
+            tau_t += delta_tau 
+                
+            #print("delta_tau = ", delta_tau) 
+
+              
                 #self.compensation_shift += self.command
                 #print("after mutex unlock")
             #print("position = "+str(self.tab3.stageWidget.PositionNmLCD.value())) 
@@ -320,7 +337,8 @@ class FeedbackLoop(QtCore.QObject):
             
             if self.run:       
             #write data in file
-           
+                self.folder = self.tab3.storedatafolder       
+                
                 index = str(ii)
                 index = (4-len(index)) * "0" + index
                 fileName = "Feedback" + str(self.feedbackNbr) + "File" + index + ".txt"
@@ -345,12 +363,13 @@ class FeedbackLoop(QtCore.QObject):
             
             self.tab3.feedback_time += 1
             self.thread().msleep(100)   
+            self.tab3.feedbackStepFinished.emit() 
             
         self.feedbackFinished.emit()
         self.tab3.feedback_time = 0
         
         # 21-01-2020
-        #self.tab3.stepOfStabScanFinished.emit()
+
         
         print("LOOP OUT")
     def StoreData(self, data):
@@ -365,10 +384,13 @@ class FeedbackLoop(QtCore.QObject):
         print("run set to FALSE")
         
         
+        
 
+    def newPosSmarAct(self):
+        self.posDisplayed = True
 
     def Arctoperator(self, V1, V2, O1, O2, A1, A2):
-        return np.arctan(((V1-O1)*A2)/((V2-O2)*A1))        
+        return np.arctan2((V1-O1)/A1, (V2-O2)/A2)        
         
     def PID(self, U, E, Kp, Ki, Kd, T):
         return U + Kp*(E[2]-E[1]) + T*Ki*E[2] + (Kd/T)*(E[2]-2*E[1]+E[0])

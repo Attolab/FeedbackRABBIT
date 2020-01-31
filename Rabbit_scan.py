@@ -79,7 +79,7 @@ class ScanningLoop(QtCore.QObject):
                 break
                 
             print("")
-            print('start scan step')
+            #print('start scan step')
             self.mutex.lock()
             #print("loop")
             self.requestMotion.emit(self.step)
@@ -100,12 +100,12 @@ class ScanningLoop(QtCore.QObject):
                 #print("in loop ... ")
                 self.thread().msleep(100)
                 #time.sleep(0.1)
-                print('Waiting for data')
+                #print('Waiting for data')
                 if not self.run:
                     print("BREAK LOOP data")
                     break
 
-            print("... after loop")
+            #print("... after loop")
             '''
             loop = True
             while loop:
@@ -138,11 +138,14 @@ class ScanningLoop(QtCore.QObject):
                 print("BREAK LOOP")
                 break            
                 '''
+        #self.requestEmitDataReconnection.emit()
+        #self.setScopeMode.emit(0)                
+                
         self.scanFinished.emit()
         print("LOOP OUT")
         
     def StoreData(self, data):
-        print("len data stored = ", len(data))
+        #print("len data stored = ", len(data))
         self.data = data
         if data != []:
             # stop the scope while the main loop write the data in a file
