@@ -257,6 +257,10 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
 
     def StartStopScanStab(self, scanOn):
         
+        self.tab3.stabScanNbr = self.ScanNbrSpinBox.value()  
+        
+        
+        
         if scanOn:
             self.CheckDataFolderExistance()
             # block interaction with the controls

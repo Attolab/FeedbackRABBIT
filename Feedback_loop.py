@@ -10,6 +10,8 @@ import os
 
 import PyQt5.QtCore as QtCore
 
+from PyQt5.QtWidgets import QApplication
+
 import datetime
 import numpy as np
 
@@ -80,56 +82,45 @@ class FeedbackLoop(QtCore.QObject):
 
     def Run(self):
         
-
+        QApplication.processEvents() 
         self.lockingPos = float(self.tab3.locking_position_display.text())         
         ############# first move to the intial position and wait until initial position is reached
         
         #print("begin Run")
         self.mutex.lock()
-        #print("after mutex lock")
+
         self.requestFeedbackMotion.emit(self.moveTo)
-        #print("after request motion")
+
         self.smarActStopCondition.wait(self.mutex)
-        #print("after smaractstopcondition wait")
+
         self.mutex.unlock()
-        #print("after initial unlock mutex")
 
 
-        self.thread().msleep(1000)    
+
+        self.thread().msleep(500)    
         delta_tau = 0.
         smarActPos = self.tab3.stageWidget.PositionNmLCD.value() 
         tau_t = self.lockingPos  #initial value of tau_t, at the begining of the feedback
         delay_drift = 0.
-        print("initial tau_t = ", tau_t)
+
         
         self.lockingPos = float(self.tab3.locking_position_display.text())  #initial locking delay
 
         
         for ii in range(self.tMax):
-            #print("")
-            #print("RUN = ", self.run)
-            
+ 
+            QApplication.processEvents()
             if not self.run:
-                #self.StoreData([])
-                #print("not self.run")
                 break    
             
             
-            #print("")
-            #print("feedback time = "+str(self.tab3.feedback_time))
-            #print("")              
-            #print("a = ", self.a)            
+          
             ######## phase offset #########
- 
-            
-            #print("lockingPos = ", self.lockingPos)
-            
 
             
             tau_0 = self.lockingPos  #in nm
             
-            #print(self.SBParam)
-            
+        
             V10 = self.SB_0noise(tau_0, self.SBParam[0], self.SBParam[2], self.SBParam[4])
             V20 = self.SB_0noise(tau_0, self.SBParam[1], self.SBParam[3], self.SBParam[5])
             
@@ -137,18 +128,13 @@ class FeedbackLoop(QtCore.QObject):
             
             phi0 = self.Arctoperator(V10, V20, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])
 
-            #print("phi0 = ", phi0)
+            print("phi0 = ", phi0)
             
         
             self.tab3.shapedErrorPlotDraw()        
          
             self.tab3.stepPercentSignal.emit(self.tab3.feedback_time)
-            #print("mode = " +str(self.mode))
-#            # clear scope memory
-#            print('clear memory')
 
-            
-            #print("beginning of step")
             #################### take scope data ################
             
             # allow data emition fro mthe scopeWidget
@@ -158,35 +144,25 @@ class FeedbackLoop(QtCore.QObject):
             # read scope 
             
             while self.data == []:
-                #print("waiting for data")
-                self.thread().msleep(100)
+                QApplication.processEvents()
+                #print("fwait")
+                self.thread().msleep(10)
                 if not self.run:
                     break
-             
-            # 21-01-2020 : same as in scan loop, we removed the clear scope command
-            #self.requestScopeMemoryClear.emit()               
-          
-            
+        
             if self.mode == "Feedback": 
             
                 ################### measure phase shift ##############
                 # normalization ?????  need to normalize self.data[1] ?
                 
-                Background = np.trapz(self.data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])
-                '''
-                V1 = np.trapz(self.data[1][self.SB_vector_int[0]:self.SB_vector_int[1]])/(self.SB_vector_int[1]-self.SB_vector_int[0]) \
-                - np.trapz(self.data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])/(self.BG_vector_int[1]-self.BG_vector_int[0])
-                
-                V2 = np.trapz(self.data[1][self.SB_vector_int[2]:self.SB_vector_int[3]])/(self.SB_vector_int[3]-self.SB_vector_int[2]) \
-                - np.trapz(self.data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])/(self.BG_vector_int[1]-self.BG_vector_int[0])
-                '''
-                
-                
+                Background = np.trapz(self.data[1][self.BG_vector_int[0]:self.BG_vector_int[1]])/abs(self.BG_vector_int[1] - self.BG_vector_int[0])
+
+
                 #shaping of data (BG removed + normalization)
                 
-                retrieved_data = self.data[1] - Background
-                norm = np.trapz(self.data[1])
-                shaped_data = retrieved_data/norm
+                data_without_BG = [elt - Background for elt in self.data[1]]
+                norm = np.trapz(data_without_BG)
+                shaped_data = data_without_BG/norm
                 
                 V1 = np.trapz(shaped_data[self.SB_vector_int[0]:self.SB_vector_int[1]])/abs(self.SB_vector_int[1] - self.SB_vector_int[0])
                 
@@ -196,7 +172,12 @@ class FeedbackLoop(QtCore.QObject):
                 
                 phi_t = self.Arctoperator(V1, V2, self.SBParam[0], self.SBParam[1], self.SBParam[2], self.SBParam[3])            
                 
-
+                print("background = ", Background)
+                print("V1 = ", V1)
+                print("V2 = ", V2)  
+                print("phi_t = ", phi_t)
+                
+                print("")
                 
                 
             if self.mode == "Test Feedback":
@@ -212,10 +193,6 @@ class FeedbackLoop(QtCore.QObject):
                 self.tab3.signal_noise = float(self.tab3.signal_noise_display.text())
                 noise_level = self.tab3.signal_noise
                 
-                '''
-                V1_t = self.tab3.SB_noisy(tau_t, self.tab2.O1, self.tab2.A1, self.tab2.phi1, noise_level)
-                V2_t = self.tab3.SB_noisy(tau_t, self.tab2.O2, self.tab2.A2, self.tab2.phi2, noise_level)
-                '''
 
                 #print("rand = ",np.random.normal(1,noise_level))
                 V1_t = np.random.normal(1,noise_level)*self.SB_0noise(tau_t, self.SBParam[0], self.SBParam[2], self.SBParam[4])
@@ -232,7 +209,7 @@ class FeedbackLoop(QtCore.QObject):
             
             dphi_t = phi_t - phi0 
             
-            #print("dphi_t = ", dphi_t)
+            print("dphi_t = ", dphi_t)
             
             # taking the "saw teeths" into account
             
@@ -252,8 +229,7 @@ class FeedbackLoop(QtCore.QObject):
             
               
             self.tab3.errorValue = -delay_shift
-            #print("error value = "+str(self.tab3.errorValue))
-            #self.thread().msleep(1000)
+            print("error value = ",self.tab3.errorValue)
             
             
             ################## calculates command ###############  
@@ -269,26 +245,25 @@ class FeedbackLoop(QtCore.QObject):
             
             self.command = self.U[1]
             
-            #print("command = ", self.command)
+            print("command = ", self.command)
 
             ################# move ############################
             
             
             if abs(self.tab3.errorValue) < self.maxError:
-                #print("move smaract")
-                # freeze this loop while the stage is not at destination :
-                #print('start motion')
+
+                
                 self.posDisplayed = False
                 smarActPos = self.tab3.stageWidget.PositionNmLCD.value()
                 self.mutex.lock()
-                #print("mutex")
+
                 if self.mode == "Feedback":
                     self.requestFeedbackMotion.emit(self.command/2)   # %2 because of the light goes back and forth in the delay line
                 if self.mode == "Test Feedback":
                     self.requestFeedbackMotion.emit(self.command)  
-                #print("after request move")
+
                 self.smarActStopCondition.wait(self.mutex)
-                #print("in mutex lock")
+
                 self.mutex.unlock()
   
                 '''
@@ -301,13 +276,14 @@ class FeedbackLoop(QtCore.QObject):
                 print("delta_tau = ", delta_tau)
                 '''
                 
+            '''
             if self.tab3.linearDriftGroupBox.isChecked():
                 tau_t -= drift_speed*1
                 
                 delay_drift += drift_speed*1
              
                 self.tab3.drift_pos_display.display(delay_drift)
-                
+            '''    
 
                 
             '''
@@ -315,25 +291,20 @@ class FeedbackLoop(QtCore.QObject):
                 #print("loop")
                 self.thread().msleep(100)
                 '''
+                
+            '''
             self.thread().msleep(100)    
             #delta_tau = self.tab3.stageWidget.PositionNmLCD.value() - smarActPos
                 
             delta_tau = int(self.command)  #????
                 
             tau_t += delta_tau 
-                
+            '''   
             #print("delta_tau = ", delta_tau) 
 
-              
-                #self.compensation_shift += self.command
-                #print("after mutex unlock")
-            #print("position = "+str(self.tab3.stageWidget.PositionNmLCD.value())) 
-            #self.requestEmitDataReconnection.emit()
-            # trigger scope
-            #self.setScopeMode.emit(0)
 
             ################ writes data in file  ###############
-            #print("writes data")
+
             
             if self.run:       
             #write data in file
@@ -350,13 +321,17 @@ class FeedbackLoop(QtCore.QObject):
                 file.write("Locking delay (nm) = "+str(tau_0)+"\n")               
                 file.write("Current pump-probe delay (nm) = "+str(tau_t)+"\n")                
                 file.write("Stage position (nm) = "+str(smarActPos)+"\n")
+                file.write("Phi_t (rad) = "+str(phi_t)+"\n")
+                file.write("Phi_0 (rad) = "+str(phi0)+"\n")
+                file.write("dphi_t (rad) = "+str(dphi_t)+"\n")
                 file.write("Error value (nm) = "+str(self.tab3.errorValue)+"\n")
                 file.write("Kp, Ki, Kd = "+str(self.PIDParam[0])+", "+str(self.PIDParam[1])+", "+str(self.PIDParam[2])+"\n")
+                file.write("Correction (nm) = "+str(self.command)+"\n")
                 x = datetime.datetime.now()
                 file.write("Date and time = "+str(x)+"\n")            
                 
                 for pp in range(len(self.data[0])):
-                    file.write('%f\t%f\n' % (self.data[0][pp], self.data[1][pp]))
+                    file.write('%.9f\t%f\n' % (self.data[0][pp], self.data[1][pp]))
                 file.close()
             self.StoreData([])
             #print("after write data")
@@ -364,6 +339,9 @@ class FeedbackLoop(QtCore.QObject):
             self.tab3.feedback_time += 1
             self.thread().msleep(100)   
             self.tab3.feedbackStepFinished.emit() 
+            
+            QApplication.processEvents() 
+            
             
         self.feedbackFinished.emit()
         self.tab3.feedback_time = 0

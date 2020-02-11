@@ -29,6 +29,9 @@ class LiveTab(QtWidgets.QWidget):
         self.stageWidget = StageWidget()
         self.scanWidget = ScanWidget()
         
+        self.stageWidget.setMinimumWidth(435)
+        self.stageWidget.setMinimumHeight(340)
+        self.scanWidget.setMinimumHeight(200)   
         
         self.nbr_clicks_SB = 0
         self.nbr_clicks_Harm = 0
@@ -177,7 +180,7 @@ class LiveTab(QtWidgets.QWidget):
              
             self.tof2int(data) 
 
-            print("self.BGVector_points = " +str(self.BGVector_points))
+            #print("self.BGVector_points = " +str(self.BGVector_points))
             #print("len data = " +str(len(data[1])))
             BG_intensity = np.trapz(data[1][self.BGVector_points[0]:self.BGVector_points[1]])/abs(self.BGVector_points[1]-self.BGVector_points[0])
             #print("data[1][self.BGVector_points[0]] = "+str(data[1][self.BGVector_points[0]]))
@@ -190,19 +193,19 @@ class LiveTab(QtWidgets.QWidget):
             #SB_intensity =  np.trapz(data[1][self.SBVector_points[0]:self.SBVector_points[1]])/abs(self.SBVector_points[1]-self.SBVector_points[0]) \
                    # - BG_intensity
             SB_intensity = np.trapz(shaped_data[self.SBVector_points[0]:self.SBVector_points[1]])/abs(self.SBVector_points[1]-self.SBVector_points[0])
-            print("self.SBVector_points = " +str(self.SBVector_points))
+            #print("self.SBVector_points = " +str(self.SBVector_points))
             #print("SB_intensity = "+str(SB_intensity))                     
             
             #Harm_intensity = np.trapz(data[1][self.HarmVector_points[0]:self.HarmVector_points[1]])/abs(self.HarmVector_points[1]-self.HarmVector_points[0]) \
                     #- BG_intensity
             Harm_intensity = np.trapz(shaped_data[self.HarmVector_points[0]:self.HarmVector_points[1]])/abs(self.HarmVector_points[1]-self.HarmVector_points[0])
-            print("self.HarmVector_points = " +str(self.HarmVector_points))
+            #print("self.HarmVector_points = " +str(self.HarmVector_points))
             #print("data[1][self.HarmVector_points[0]] = "+str(data[1][self.HarmVector_points[0]]))
             #print("Harm_intensity = "+str(Harm_intensity))             
             
             self.intensityRatio = abs(SB_intensity/Harm_intensity)            
             
-            print("intensity ratio = " +str(self.intensityRatio))
+            #print("intensity ratio = " +str(self.intensityRatio))
             
         le = len(self.live_time_data)  #size of the window adapted to the period
         if le < 30:
@@ -264,10 +267,10 @@ class LiveTab(QtWidgets.QWidget):
             if self.nbr_clicks_SB == 2:
                 self.SBVector = []
                 self.nbr_clicks_SB = 0
-                print("SBVector ="+str(self.SBVector))
+                #print("SBVector ="+str(self.SBVector))
                 self.SB1.remove()
                 self.SB2.remove()
-                print("lines =" +str(self.scopePlotAxis.lines))
+                #print("lines =" +str(self.scopePlotAxis.lines))
                 self.scopePlotCanvas.draw() 
                 
             else:
@@ -282,8 +285,8 @@ class LiveTab(QtWidgets.QWidget):
                   
                 self.nbr_clicks_SB += 1
                 self.SBVector.sort()    
-                print("SBVector ="+str(self.SBVector))
-                print("lines =" +str(self.scopePlotAxis.lines))
+                #print("SBVector ="+str(self.SBVector))
+                #print("lines =" +str(self.scopePlotAxis.lines))
 
 
       
@@ -291,10 +294,10 @@ class LiveTab(QtWidgets.QWidget):
             if self.nbr_clicks_Harm == 2:
                 self.HarmVector = []
                 self.nbr_clicks_Harm = 0
-                print("HarmVector ="+str(self.HarmVector))
+                #print("HarmVector ="+str(self.HarmVector))
                 self.H1.remove()
                 self.H2.remove()
-                print("lines =" +str(self.scopePlotAxis.lines))
+                #print("lines =" +str(self.scopePlotAxis.lines))
                 self.scopePlotCanvas.draw() 
             else: 
                 x = event.xdata
@@ -308,8 +311,8 @@ class LiveTab(QtWidgets.QWidget):
                 #self.scopePlotCanvas.draw()  
                 self.nbr_clicks_Harm += 1
                 self.HarmVector.sort()
-                print("HarmVector ="+str(self.HarmVector))
-                print("lines =" +str(self.scopePlotAxis.lines))
+                #print("HarmVector ="+str(self.HarmVector))
+                #print("lines =" +str(self.scopePlotAxis.lines))
 
 
                 
@@ -345,7 +348,7 @@ class LiveTab(QtWidgets.QWidget):
     def tof2int(self, data):
         #returns SB, Harm and BG vectors with points in number of "pixels"
 
-        print("TOF2INT")
+        #print("TOF2INT")
         SB_tof1, SB_tof2 = self.SBVector[0], self.SBVector[1] 
         Harm_tof1, Harm_tof2 = self.HarmVector[0], self.HarmVector[1]
         BG_tof1, BG_tof2 = self.BGVector[0], self.BGVector[1]
@@ -353,7 +356,8 @@ class LiveTab(QtWidgets.QWidget):
         tof_min = data[0][0]
         tof_max = data[0][-1]
 
-        nbrOfPoints = self.scopeWidget.reader.dataPointsNbr
+        nbrOfPoints = self.scopeWidget.reader.numPoints
+        #print("nbrOfPoints = ", nbrOfPoints)
         
         Delta_tof = abs((tof_max - tof_min)/nbrOfPoints)
         

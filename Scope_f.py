@@ -405,8 +405,8 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         
 
     def TransmitData(self, data):
-        if self.sweepsProgressBar.value() >= 1:
-            self.emitData.emit(data)
+        #if self.sweepsProgressBar.value() >= 1:
+        self.emitData.emit(data)
         #print("data transmitted")
         
     def quitScope(self):

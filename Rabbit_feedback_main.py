@@ -43,9 +43,9 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
         self.tab3 = feedback_win.FeedbackTab(self.tab1, self.tab2)
         #self.tab4 = scanStab_win.scanStabTab(self.tab3)
         
-        self.addTab(self.tab1,"Live")
-        self.addTab(self.tab2, "Sidebands")
-        self.addTab(self.tab3, "Feedback")
+        self.addTab(self.tab1,"LIVE")
+        self.addTab(self.tab2, "SIDEBANDS")
+        self.addTab(self.tab3, "FEEDBACK")
         #self.addTab(self.tab4, "Stab scan")
         
         self.setWindowTitle("RABBIT Active Stabilization")
@@ -93,7 +93,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     ################################## RABBIT FEEDBACK FUNCTIONS ############################################
         
         
-    def DisplayAndStabilize(self, data):  #updates the scope windows (scope 1, scope 2, time error plot and time delay position) and performs feedback
+    def Display(self, data):  #updates the scope windows (scope 1, scope 2, time error plot and time delay position) and performs feedback
         scale_y=self.tab1.scopeWidget.YScale
         scale_x=self.tab1.scopeWidget.XScale
         y_offset = self.tab1.scopeWidget.YOffset
@@ -143,7 +143,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     def ForwardData(self, data):
         
         #print("")
-        print("fd")
+        #print("fd")
         #print("")
         
         if self.tab1.scanWidget.startScanPushButton.isChecked():
@@ -162,7 +162,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
             #print("feedback data stored")
         # send data to graphs
         self.tab1.scopeWidget.emitData.disconnect() 
-        self.DisplayAndStabilize(data)
+        self.Display(data)
           
     
     def StartStopScan(self, scanOn):
@@ -459,7 +459,7 @@ class RABBIT_feedback(QtWidgets.QTabWidget):
     def changeSSLock(self, lockPos):
         self.tab3.locking_position_display.setText(str(lockPos))
         self.feedbackLoop.lockingPos = lockPos
-        self.feedbackLoop.requestScopeBufferClear.emit()
+        #self.feedbackLoop.requestScopeBufferClear.emit()   #clears the scope output buffer
 
         self.feedbackThread.msleep(500)
 def main():

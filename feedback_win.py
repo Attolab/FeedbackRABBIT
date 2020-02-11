@@ -614,17 +614,10 @@ class FeedbackTab(QtWidgets.QWidget):
         
         Min = min(self.live_error_data)
         Max = max(self.live_error_data)
-        y_min = 0
-        y_max = 0
-        if Min>0:
-            y_min = 0.99*Min
-        else:
-           y_min = 1.01*Min
-        if Max>0:
-            y_max = 1.01*Max
-        else:
-            y_max = 0.99*Max
-        
+
+        y_min = Min - 1
+        y_max = Max + 1
+
         self.time_errorPlotAxis.set_ylim([y_min, y_max])
    
         self.time_errorPlotAxis.grid(True)
@@ -643,15 +636,10 @@ class FeedbackTab(QtWidgets.QWidget):
         Max2 = max(self.live_position_data)
         y_min2 = 0
         y_max2 = 0
-        if Min2>0:
-            y_min2 = 0.99*Min2
-        else:
-           y_min2 = 1.01*Min2
-        if Max2>0:
-            y_max2 = 1.01*Max2
-        else:
-            y_max2 = 0.99*Max2
-        
+
+        y_min2 = Min2 - 1
+        y_max2 = Max2 + 1
+
         self.time_positionPlotAxis.set_ylim([y_min2, y_max2])
  
         
@@ -797,8 +785,7 @@ class FeedbackTab(QtWidgets.QWidget):
     
         test_stab_scan_widget = Rabbit_scan_stab.ScanStabWidget(self, "test scan stab")
         test_stab_scan_widget.titleLabel.setText("Test Stab Scan")
-        test_stab_scan_widget.mvtTypeComboBox.addItem("Forward") #impossible to put this command in the scan ui file, I don't know why
-        test_stab_scan_widget.mvtTypeComboBox.addItem("Backward")
+
         
         dialog = QtWidgets.QDialog()
         
@@ -811,7 +798,8 @@ class FeedbackTab(QtWidgets.QWidget):
         box.addLayout(winLayout)
         #box.addWidget(self.scopePlotCanvas)
        
-      
+        dialog.setGeometry(1000, 50, 200, 300)
+        
         dialog.setLayout(box)
         dialog.setWindowModality(1)
         dialog.exec_()

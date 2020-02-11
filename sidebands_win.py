@@ -98,8 +98,8 @@ class SidebandsTab(QtWidgets.QWidget):
         self.scanPlotTrace = self.scanPlotAxis.matshow([[0,0],[0,0]])
         self.scanPlotLayout.addWidget(self.scanPlotCanvas)
         
-        #nav = NavigationToolbar2QT(self.scanPlotCanvas, self)
-        #nav.setStyleSheet("QToolBar { border: 0px }")
+        nav1 = NavigationToolbar2QT(self.scanPlotCanvas, self)
+        nav1.setStyleSheet("QToolBar { border: 0px }")
         
         self.step_display = QtWidgets.QLineEdit("{:.2f}".format(self.scan_step), self)
         self.step_display.setMaximumWidth(30)
@@ -196,9 +196,9 @@ class SidebandsTab(QtWidgets.QWidget):
         scanLayout.addLayout(small_layout,0,0)
         
         scanLayout.addWidget(self.scanPlotCanvas,1,0)
-        #scanLayout.addWidget(nav,2,0)
-        scanLayout.addWidget(self.horizontal_plot_btn,2,0)
-        scanLayout.addWidget(self.horPlotCanvas,3,0)
+        scanLayout.addWidget(nav1,2,0)
+        scanLayout.addWidget(self.horizontal_plot_btn,3,0)
+        scanLayout.addWidget(self.horPlotCanvas,4,0)
         
         
         box2.addLayout(scanLayout,0,0)
@@ -261,9 +261,17 @@ class SidebandsTab(QtWidgets.QWidget):
          
             rabbit_array = np.zeros(shape=(self.n,n_t))
             
+            
+
+            print("nt = ",n_t)
+            print("n =", self.n)
+            
             for i in range(self.n):
                 rabbit_array[i] = self.import_spectrum(flist[i])[1]
-           
+                
+        
+            
+            
             self.rabbit_mat = rabbit_array
             self.shaped_rabbit_mat = rabbit_array
             self.rabbit_t = list_t
@@ -538,16 +546,16 @@ class SidebandsTab(QtWidgets.QWidget):
         
         linFit = self.lin_fit(self.data_x, self.param_lin[0], self.param_lin[1])
         
-        #self.errorPlotAxis.plot(self.data_x_nm, self.list_phi_calib, label= "Error signal")
+        self.errorPlotAxis.plot(self.data_x_nm, self.list_phi_calib, label= "Error signal")
         #self.errorPlotAxis.plot(self.data_x_nm, list_error_fit, 'k--', label="Error signal extracted from cosine fit", )
-        #self.errorPlotAxis.plot(self.data_x_nm, linFit, label= "Linear fit of the error signal") 
+        self.errorPlotAxis.plot(self.data_x_nm, linFit, label= "Linear fit of the error signal") 
         
-        self.errorPlotAxis.plot(self.data_x_nm, [(elt-np.pi)%(2*np.pi)-np.pi for elt in self.list_phi_calib], label= "(unwrap-pi)%(2 pi) - pi)")
-        self.errorPlotAxis.plot(self.data_x_nm, self.list_error_wrapped, label= "data without unwrapping") 
+        #self.errorPlotAxis.plot(self.data_x_nm, [(elt-np.pi)%(2*np.pi)-np.pi for elt in self.list_phi_calib], label= "(unwrap-pi)%(2 pi) - pi)")
+        #self.errorPlotAxis.plot(self.data_x_nm, self.list_error_wrapped, label= "data without unwrapping") 
         
-        self.errorPlotAxis.plot(self.data_x_nm, [(x*self.a+self.b -np.pi)%(2*np.pi)-np.pi for x in self.data_x_nm], label = "(line-pi)%(2 pi) - pi)")
+        #self.errorPlotAxis.plot(self.data_x_nm, [(x*self.a+self.b -np.pi)%(2*np.pi)-np.pi for x in self.data_x_nm], label = "(line-pi)%(2 pi) - pi)")
         
-        print("a, b =", str(self.param_lin[0]), str(self.param_lin[1]))
+        print("a, b =", self.a, self.b)
         self.errorPlotAxis.set_ylabel("Error signal", fontsize=10)
         self.errorPlotAxis.set_xlabel("Delay (nm)", fontsize=10)
         self.errorPlotAxis.legend(loc='best')

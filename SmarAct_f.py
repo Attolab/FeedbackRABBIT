@@ -199,10 +199,10 @@ class SmarActReader(QtCore.QObject):
         self.isRunning = True
         # initialize packet reading parameters
         status = 9
-        timeout = 1000
+        timeout = 100
         self.struct = DataPacketStructure(1,1,1,1,1,1)
         # reading loop : the SmarAct controler sends information by packets
-        self.Pos = 0
+        #self.Pos = 0
         while self.isRunning:
             # 1) read packet
             status = SmaractDll.SA_ReceiveNextPacket_A(ctypes.c_ulong(self.systemIndex), ctypes.c_ulong(timeout), ctypes.byref(self.struct))
@@ -219,8 +219,8 @@ class SmarActReader(QtCore.QObject):
             elif self.struct.packetType == 2:
 #                print "Channel " + str(struct.channelIndex) + " is at position : " + str(struct.data2) + " nm"
                 self.newPosition.emit(self.struct.data2)
-                self.Pos = self.struct.data2
-                #print(self.struct.data2)
+                #self.Pos = self.struct.data2
+                #print("position = ", self.struct.data2)
             #elif self.struct.packetType == 3:
                 #print("report = ", self.report)
                 #self.motionEnded.emit()
@@ -256,7 +256,9 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
         self.setupUi(self)          #self.frame = uic.loadUi("StagePyQt4UI.ui")
         self.systemIndex = 0
         
-        self.POS = 0.
+        #self.POS = 0.
+        
+        self.timeZero = 0  #position of the time-zero on the smarAct
 
         self.ControlerComboBox.currentIndexChanged.connect(self.onControlerSelect)
         # speed spinbox keybordtracking set off by default
@@ -273,7 +275,9 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
         self.StepLeftPushButton.clicked.connect(lambda x : self.PositionFsSpinBox.setValue(self.PositionFsSpinBox.value() - self.StepSpinBox.value()/300.))
         self.StepRightPushButton.clicked.connect(lambda x : self.PositionFsSpinBox.setValue(self.PositionFsSpinBox.value() + self.StepSpinBox.value()/300.))
         self.FindRefPushButton.clicked.connect(self.FindReference)
-        self.CalibrationPushButton.clicked.connect(self.Calibration)   
+        self.CalibrationPushButton.clicked.connect(self.Calibration)  
+        
+        self.timeZeroSpinBox.valueChanged.connect(self.changeTimeZero)
 
         self.FindSystems()
         self.ChannelComboBox.currentIndexChanged.connect(self.onChannelSelect)
@@ -470,10 +474,14 @@ class StageWidget(QtWidgets.QFrame, Ui_StageWidget):
     def displayNewPosition(self, pos):
         self.PositionNmLCD.display(pos)
         self.PositionProgressBar.setValue(pos)
+        self.Position2NmLCD.display(pos - self.timeZero)
         #print("smaract pos = "+str(pos))
         #self.POS = pos
 
-
+    def changeTimeZero(self):
+        self.timeZero = self.timeZeroSpinBox.value()
+        
+        
 
 if __name__ == '__main__':
     

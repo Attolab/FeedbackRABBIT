@@ -18,6 +18,7 @@ import PyQt5.QtCore as QtCore
 from PyQt5 import QtWidgets
 from PyQt5.uic import loadUiType
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -86,7 +87,7 @@ class ScanningLoop(QtCore.QObject):
             self.smarActStopCondition.wait(self.mutex)
             #print("after .wait in scan")
             self.mutex.unlock()
-            
+            QApplication.processEvents()            
 
             # allow data emition fro mthe scopeWidget
             self.requestEmitDataReconnection.emit()
@@ -97,6 +98,7 @@ class ScanningLoop(QtCore.QObject):
             # read scope
             #print("data = ",self.data)
             while self.data == []:
+                QApplication.processEvents() 
                 #print("in loop ... ")
                 self.thread().msleep(100)
                 #time.sleep(0.1)
@@ -130,7 +132,7 @@ class ScanningLoop(QtCore.QObject):
                 pathFile = os.path.join(self.folder, fileName)
                 file = open(pathFile,"w")
                 for ii in range(len(self.data[0])):
-                    file.write('%f\t%f\n' % (self.data[0][ii], self.data[1][ii]))
+                    file.write('%.9f\t%f\n' % (self.data[0][ii], self.data[1][ii]))
                 file.close()
             self.StoreData([])
             '''
