@@ -52,6 +52,7 @@ class SidebandsTab(QtWidgets.QWidget):
         self.SB_vector_int = []  #sidebands positions on the scan array (integers, in scan steps)
         self.supSB_vector_int = []  #additional sidebands positions on the scan array
         self.BG_vector = []   #background band vectorthat will be substracted from sidebands
+        self.BG_vector_int = []
         
         self.int_SB1 = []  #list of values corresponding to the sideband integrated over its width
         self.int_SB2 = []
@@ -64,10 +65,11 @@ class SidebandsTab(QtWidgets.QWidget):
         self.fit_SB1 = []  #cosine fit of sidebands
         self.fit_SB2 = []
 
-
+        self.a = 0.
+        self.b = 0.
         
         self.data_x_nm=[]  #list of delay values converted in nm
-        self.list_error = []   #error signal extracted from the parameters above (O1, O2, A1, A2, etc.) 
+        self.list_phi_calib = []   #error signal extracted from the parameters above (O1, O2, A1, A2, etc.) 
         self.list_error_wrapped = [] #error signal without the unwrap operation
         
         self.O1 = 0.  #offset of the fitted sideband
@@ -96,8 +98,8 @@ class SidebandsTab(QtWidgets.QWidget):
         self.scanPlotTrace = self.scanPlotAxis.matshow([[0,0],[0,0]])
         self.scanPlotLayout.addWidget(self.scanPlotCanvas)
         
-        #nav = NavigationToolbar2QT(self.scanPlotCanvas, self)
-        #nav.setStyleSheet("QToolBar { border: 0px }")
+        nav1 = NavigationToolbar2QT(self.scanPlotCanvas, self)
+        nav1.setStyleSheet("QToolBar { border: 0px }")
         
         self.step_display = QtWidgets.QLineEdit("{:.2f}".format(self.scan_step), self)
         self.step_display.setMaximumWidth(30)
@@ -130,11 +132,16 @@ class SidebandsTab(QtWidgets.QWidget):
         self.errorPlotCanvas = FigureCanvas(self.errorPlotFigure)             
         self.errorPlotAxis.clear()
         
+        nav = NavigationToolbar2QT(self.errorPlotCanvas, self)
+        nav.setStyleSheet("QToolBar { border: 0px }")
+        
         
         self.importdata_btn = QtWidgets.QPushButton("Load RABBIT scan", self)
         self.importdata_btn.clicked.connect(self.import_scan)
         self.importdata_btn.setMaximumWidth(130)
         
+        
+        '''
         self.SBCheckBox = QtWidgets.QCheckBox("Select 2 SB in phase quad.")
         self.supSBCheckBox = QtWidgets.QCheckBox("Select additional SB")
         self.BGCheckBox = QtWidgets.QCheckBox("Select background band")
@@ -142,11 +149,12 @@ class SidebandsTab(QtWidgets.QWidget):
         self.SBCheckBox.stateChanged.connect(lambda: self.exclusive(self.SBCheckBox, self.supSBCheckBox, self.BGCheckBox))
         self.supSBCheckBox.stateChanged.connect(lambda: self.exclusive(self.supSBCheckBox, self.SBCheckBox, self.BGCheckBox))
         self.BGCheckBox.stateChanged.connect(lambda: self.exclusive(self.BGCheckBox, self.SBCheckBox, self.supSBCheckBox))
-        
+        '''
         
         self.SB_plot_btn = QtWidgets.QPushButton("Plot sidebands", self)
         self.SB_plot_btn.clicked.connect(self.SBPlotDraw)
         self.SB_plot_btn.setMaximumWidth(90)
+        self.SB_plot_btn.setStyleSheet("background-color: Green")  
         
         
         self.horizontal_plot_btn = QtWidgets.QPushButton("Plot horizontal cross-section", self)
@@ -157,6 +165,7 @@ class SidebandsTab(QtWidgets.QWidget):
         self.error_plot_btn = QtWidgets.QPushButton("Plot error signal", self)
         self.error_plot_btn.clicked.connect(self.errorPlotDraw)
         self.error_plot_btn.setMaximumWidth(100)
+        self.error_plot_btn.setStyleSheet("background-color: Green")
         
         
         self.O1_display = QtWidgets.QLineEdit("{:.2f}".format(self.O1), self)
@@ -173,9 +182,9 @@ class SidebandsTab(QtWidgets.QWidget):
         small_layout.addWidget(self.importdata_btn)
         small_layout.addWidget(QtWidgets.QLabel("Scan step (nm)"))
         small_layout.addWidget(self.step_display)
-        small_layout.addWidget(self.SBCheckBox)
-        small_layout.addWidget(self.supSBCheckBox)
-        small_layout.addWidget(self.BGCheckBox)
+        #small_layout.addWidget(self.SBCheckBox)
+        #small_layout.addWidget(self.supSBCheckBox)
+        #small_layout.addWidget(self.BGCheckBox)
         small_layout.addStretch(10)
         #small_layout.setContentsMargins(100,300,100,300)
         small_layout.setSpacing(10)
@@ -187,9 +196,9 @@ class SidebandsTab(QtWidgets.QWidget):
         scanLayout.addLayout(small_layout,0,0)
         
         scanLayout.addWidget(self.scanPlotCanvas,1,0)
-        #scanLayout.addWidget(nav,2,0)
-        scanLayout.addWidget(self.horizontal_plot_btn,2,0)
-        scanLayout.addWidget(self.horPlotCanvas,3,0)
+        scanLayout.addWidget(nav1,2,0)
+        scanLayout.addWidget(self.horizontal_plot_btn,3,0)
+        scanLayout.addWidget(self.horPlotCanvas,4,0)
         
         
         box2.addLayout(scanLayout,0,0)
@@ -221,6 +230,7 @@ class SidebandsTab(QtWidgets.QWidget):
         signalLayout.addWidget(paramGroupBox,2,0)
         signalLayout.addWidget(self.error_plot_btn, 3, 0)
         signalLayout.addWidget(self.errorPlotCanvas, 4, 0)
+        signalLayout.addWidget(nav, 5, 0)        
        
         box2.addLayout(signalLayout,0,1)
         
@@ -251,16 +261,24 @@ class SidebandsTab(QtWidgets.QWidget):
          
             rabbit_array = np.zeros(shape=(self.n,n_t))
             
+            
+
+            print("nt = ",n_t)
+            print("n =", self.n)
+            
             for i in range(self.n):
                 rabbit_array[i] = self.import_spectrum(flist[i])[1]
-           
+                
+        
+            
+            
             self.rabbit_mat = rabbit_array
             self.shaped_rabbit_mat = rabbit_array
             self.rabbit_t = list_t
             
             self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat)
             self.scanPlotAxis.set_aspect('auto')
-            self.scanPlotAxis.set_ylabel("Delay", fontsize=10)
+            self.scanPlotAxis.set_ylabel("Delay (steps)", fontsize=10)
             self.scanPlotAxis.set_xlabel("ToF", fontsize=10)
 
             
@@ -270,11 +288,12 @@ class SidebandsTab(QtWidgets.QWidget):
             self.scanPlotCanvas.mpl_connect('button_press_event', self.onclick)
             
             
-            
+    '''        
     def exclusive(self, clickedbox, box2, box3):
         if clickedbox.isChecked():
             box2.setChecked(False)
             box3.setChecked(False)
+    '''
       
     def onclick(self, event):
         
@@ -373,11 +392,12 @@ class SidebandsTab(QtWidgets.QWidget):
 
         for elt in self.SB_vector:
             self.SB_vector_int.append(int(elt))
+
         for elt in self.BG_vector:
             self.BG_vector_int.append(int(elt))
         self.SB_vector_int.sort()
         self.BG_vector_int.sort()
-    
+        print("SB_vector_int = "+str(self.SB_vector_int))   
         #3rd sideband + normalization
         int_left = self.BG_vector_int[0]
         int_right = self.BG_vector_int[1]
@@ -420,7 +440,7 @@ class SidebandsTab(QtWidgets.QWidget):
         
         self.dphi = params1[2]-params2[2]
         
-        
+        print("param1, param2 = ", params1, params2)    
         
         for i in range(self.n):
             self.fit_SB1.append(self.cosine(self.data_x[i], params1[0], params1[1], params1[2]))
@@ -477,19 +497,26 @@ class SidebandsTab(QtWidgets.QWidget):
     
     def errorPlotDraw(self): #displays the error signal
         
-        ddphi = self.dphi - np.pi/2
+
         self.errorPlotAxis.clear()
-        self.list_error = []
+        self.list_phi_calib = []
         self.list_error_wrapped = []
         
         list_error_fit = []
         
-        self.list_error = np.unwrap(np.arctan2(
+       
+        self.list_phi_calib = np.unwrap(np.arctan2(
             (self.retrieved_SB1 - self.O1)/self.A1,
             (self.retrieved_SB2 - self.O2)/self.A2
         ))
-        
-        
+       
+        '''
+        self.list_phi_calib = np.arctan2(
+            (self.retrieved_SB1 - self.O1)/self.A1,
+            (self.retrieved_SB2 - self.O2)/self.A2
+        )   
+        '''
+
         listcos =[]
         for elt in self.retrieved_SB2:
             listcos.append((elt - self.O2)/self.A2)
@@ -511,17 +538,33 @@ class SidebandsTab(QtWidgets.QWidget):
             self.data_x_nm.append(elt*self.scan_step)
             
             
-        self.param_lin, cov = optimize.curve_fit(self.lin_fit, self.data_x, self.list_error)
+        self.param_lin, cov = optimize.curve_fit(self.lin_fit, self.data_x, self.list_phi_calib)
+
+        print(self.param_lin)
+        self.a = self.param_lin[0]/self.scan_step
+        self.b = self.param_lin[1]
         
+        linFit = self.lin_fit(self.data_x, self.param_lin[0], self.param_lin[1])
         
+        self.errorPlotAxis.plot(self.data_x_nm, self.list_phi_calib, label= "Error signal")
+        #self.errorPlotAxis.plot(self.data_x_nm, list_error_fit, 'k--', label="Error signal extracted from cosine fit", )
+        self.errorPlotAxis.plot(self.data_x_nm, linFit, label= "Linear fit of the error signal") 
         
+        #self.errorPlotAxis.plot(self.data_x_nm, [(elt-np.pi)%(2*np.pi)-np.pi for elt in self.list_phi_calib], label= "(unwrap-pi)%(2 pi) - pi)")
+        #self.errorPlotAxis.plot(self.data_x_nm, self.list_error_wrapped, label= "data without unwrapping") 
         
-        self.errorPlotAxis.plot(self.data_x_nm, self.list_error, label= "Error signal")
-        self.errorPlotAxis.plot(self.data_x_nm, list_error_fit, 'k--', label="Error signal extracted from cosine fit", )
-        self.errorPlotAxis.plot(self.data_x_nm, self.lin_fit(self.data_x, self.param_lin[0], self.param_lin[1]), label= "Linear fit of the error signal")  
-        print("a ="+str(self.param_lin[0]))
+        #self.errorPlotAxis.plot(self.data_x_nm, [(x*self.a+self.b -np.pi)%(2*np.pi)-np.pi for x in self.data_x_nm], label = "(line-pi)%(2 pi) - pi)")
+        
+        print("a, b =", self.a, self.b)
         self.errorPlotAxis.set_ylabel("Error signal", fontsize=10)
         self.errorPlotAxis.set_xlabel("Delay (nm)", fontsize=10)
         self.errorPlotAxis.legend(loc='best')
+        self.errorPlotAxis.grid(True)
         self.errorPlotCanvas.draw()
         
+    '''
+    def phi_calib(self, tau): #tau in nm
+        a = self.param_lin[0]/self.scan_step  #slope in rad/nm
+        b = self.param_lin[1]
+        return a*tau + b
+        '''

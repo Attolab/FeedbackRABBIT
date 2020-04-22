@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 LeCroy WaveRunner 625Zi oscilloscope
@@ -47,10 +46,17 @@ class ScopeReader(QtCore.QObject):
         # variable containing the channel currently selected in the ScopeWidget
         self.channel = "C1"
         # initiallize the integer containing the number of data points to read from the scope at the value displayed on the user interface
-        self.dataPointsNbr = scopeWidget.dataPointsNbrSpinBox.value()
+        #self.dataPointsNbr = scopeWidget.dataPointsNbrSpinBox.value()
         
         # connect the writeReader signal from the holding scope widget to the writeScope function of this class
         scopeWidget.writeReader.connect(self.writeScope)
+        
+        self.period = 1.*1000  #period of queries, in millisecond
+        self.shortTime = 1.        
+        self.numSegments = 3000   
+        self.acquiredSegments = 0
+        self.canAsk = True
+        self.numPoints = 10000
 
     def writeScope(self, command):
         #print(command)
@@ -75,18 +81,20 @@ class ScopeReader(QtCore.QObject):
         self.channel = channel
     
     def SetDataPointsNbr(self, nbr):
-        self.dataPointsNbr = nbr
+        self.numPoints = nbr
 
     def ReadWaveform(self):
+        #print("ReadWaveform begins")
         # update the sweep value recorded in the progress bar
         self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] +""".Out.Result.Sweeps' """)
         # read the waveform
-        waveform = self.scope.GetScaledWaveformWithTimes(self.channel, self.dataPointsNbr, 0)
+        waveform = self.scope.GetScaledWaveformWithTimes(self.channel, self.numPoints, 0)
         #if len(waveform[0]) > 1:
         if waveform != None:
             if len(waveform[0]) > 1:
             # emit non-emtpy data only
                 self.dataRecieved.emit(waveform)
+                #print("waveform emitted")
     #######################################################################################        
     def ReadParameters(self):
         #update parameters such as Verscale, Horscale, etc.....
@@ -94,8 +102,10 @@ class ScopeReader(QtCore.QObject):
         self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.HorScale'""")
         
         self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.VerticalOffset' """)
+        self.writeScope("""VBS? 'return=app.Acquisition.""" + """C""" + self.channel[1] + """.Out.Result.HorizontalOffset' """) 
         
-    
+        self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.NumSegments'""")        
+        self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.NumPoints'""")  
 
     def Run(self):
 #        print("start main loop")
@@ -111,8 +121,14 @@ class ScopeReader(QtCore.QObject):
 #                           "Single":self.Single(),
 #                           "Stop":self.Stop(),
 #                           "Starting":""}
+        
+        
+        #get the total number of segments
+        #self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.NumSegments'""")          
+       
+        
         while self.mode: # An unempty string is considered True in python
-            self.thread().msleep(1000)
+            self.thread().msleep(100)
             if self.mode == "Auto":
                 self.Auto()
             elif self.mode == "Normal":
@@ -130,14 +146,35 @@ class ScopeReader(QtCore.QObject):
             self.ReadWaveform()
             self.ReadParameters()
             # pause loop
-            self.thread().msleep(1000)
+            self.thread().msleep(self.period)
 
     def Normal(self):
+        print("Normal")
         while self.mode == "Normal":
-            self.ReadWaveform()
-            self.ReadParameters()
-            # pause loop
-            self.thread().msleep(1000)
+            #the following loop waits for all the sweeps to be recorded and averaged by the scope, \
+            #before making an acquisition (so that we don't sample two acquisitions corresponding to the same set of sweeps)
+            loop = True 
+            while loop:
+                #print("inside segment acquisition loop")
+                
+                self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.AcquiredSegments'""")  
+                #acquiredSegments = self.scope.ReadString(50)
+                #print("acquired segments =" +str(self.acquiredSegments))
+                self.thread().msleep(100)
+                if self.acquiredSegments == self.numSegments:
+                    #print("all segments acquired")
+                    self.thread().msleep(100)
+                    self.ReadWaveform()
+                    self.ReadParameters()
+                    loop = False
+                    self.thread().msleep(300)
+                self.thread().msleep(100)
+                
+            #self.ReadWaveform()
+            #self.ReadParameters()
+
+            #self.thread().msleep(self.period)
+
 
     def Single(self):
         # make a single acquisition before switching to the stopped state when the oscilloscope is ready.
@@ -146,12 +183,12 @@ class ScopeReader(QtCore.QObject):
         while self.mode == "Single":
             # pause loop
             self.writeScope("""VBS? 'return=app.Acquisition.TriggerMode' """)
-            self.thread().msleep(1000)
+            self.thread().msleep(self.period)
 
     def Stop(self):
         # Wait for the user to switch to an other trigger mode
         while self.mode == "Stop":
-            self.thread().msleep(1000)
+            self.thread().msleep(self.period)
         
     def Off(self):
         self.mode = ""
@@ -176,9 +213,11 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         self.YScale=0.01
         self.XScale=5.
         self.YOffset=0.
+        self.XOffset=0.
         # connect group box to start/stop procedure
         self.scopeGroupBox.toggled.connect(self.ScopeGroupBoxToggled)
         print("Connect Group Box")
+        
     def UIUpdate(self, updatedData):
         #print(updatedData)
         if not updatedData[1]: # alert the user if the data string is empty
@@ -194,6 +233,10 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
                 self.OffsetLCD.display(-float(updatedData[1]))
                 self.OffsetLCD.blockSignals(False)
                 #print("YOffset="+str(self.YOffset))
+
+            elif updatedData[0] == "HorizontalOffset":
+                self.XOffset = float(updatedData[1])
+
                 
             elif updatedData[0] == "VerScale":           
                 self.YScale=float(updatedData[1])
@@ -210,7 +253,18 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
             elif updatedData[0] == "HorScale":
                 self.XScale=float(updatedData[1])
                 #print("Horscale="+str(self.XScale))
-  
+                
+            elif updatedData[0] == "NumSegments":
+                self.reader.numSegments = int(float(updatedData[1]))
+                #print("###### Nbr of segments = ", updatedData[1])
+                
+            elif updatedData[0] == "AcquiredSegments":
+                self.reader.acquiredSegments = int(float(updatedData[1]))
+                #print("###### Acquired segments = ", updatedData[1]) 
+                
+            elif updatedData[0] == "NumPoints":
+                self.reader.numPoints = int(float(updatedData[1]))
+                #print("###### Acquired segments = ", updatedData[1])                 
 
     def ScopeGroupBoxToggled(self):
         if self.scopeGroupBox.isChecked():
@@ -224,7 +278,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
             self.readerThread = QtCore.QThread()
             self.reader.moveToThread(self.readerThread)
             self.readerThread.started.connect(self.reader.Run)
-            print("after Run")
+            #print("after Run")
             # start the reader thread...
             self.readerThread.start()
             # ... and wait for it to be running (tests indicate that this safety is useless!)
@@ -238,6 +292,8 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
 
             self.ConnectButtons()
             self.scopeGroupBox.setTitle("ON")
+            
+            self.dataPointsNbrSpinBox.setValue(self.reader.numPoints)
         else:
             self.reader.Off()
             
@@ -314,6 +370,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         string = """VBS? 'return=app.Acquisition.Horizontal.NumSegments'"""
         self.writeReader.emit(string)
 
+
     def GetTScale(self):
         string = """VBS? 'return=app.Acquisition.Horizontal.HorScale'"""
         self.writeReader.emit(string)
@@ -334,16 +391,30 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         self.writeReader.emit("""VBS? 'return=app.Acquisition.Trigger.Edge.Source' """)
 
     def ClearSweeps(self):
+        print("requested sweep clear")
         self.writeReader.emit("""VBS 'app.Acquisition.ClearSweeps' """)
-    
+        #self.reader.scope.DeviceClear(False)            #clears the scope ouput buffer
+        self.thread().msleep(500)
+        
+        
+    def ClearBuffer(self):
+        print("request buffer clear")
+        self.reader.scope.DeviceClear(False)        
+        #self.thread().msleep(500)        
+        
+        
+
     def TransmitData(self, data):
-        if self.sweepsProgressBar.value() >= 1:
-            self.emitData.emit(data)
+        #if self.sweepsProgressBar.value() >= 1:
+        self.emitData.emit(data)
+        #print("data transmitted")
         
     def quitScope(self):
+        self.reader.acquiredSegments = self.reader.numSegments
+        print("QUIT SCOPE")
         if self.scopeGroupBox.isChecked():
             self.scopeGroupBox.setChecked(False)
-            #self.reader.Off()
+        self.reader.Off()
         self.scope.Disconnect()
 
 
@@ -404,7 +475,7 @@ if __name__ == '__main__':
             self.applicationMenu.addAction(self.restartAction)
             self.applicationMenu.addAction(self.quitAction)
 
-            self.scopeWidget.emitData.connect(self.Trace)
+            #self.scopeWidget.emitData.connect(self.Trace)
             self.scopeWidget.alertMessage.connect(self.statusBar().showMessage)
 
             self.show()

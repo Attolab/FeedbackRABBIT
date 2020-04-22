@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>200</width>
-    <height>200</height>
+    <width>286</width>
+    <height>270</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -18,13 +18,13 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>250</width>
-    <height>200</height>
+    <width>286</width>
+    <height>270</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>450</width>
+    <width>286</width>
     <height>270</height>
    </size>
   </property>
@@ -43,14 +43,14 @@
      <x>10</x>
      <y>10</y>
      <width>71</width>
-     <height>21</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="font">
     <font>
-     <pointsize>13</pointsize>
-     <weight>75</weight>
-     <bold>true</bold>
+     <pointsize>15</pointsize>
+     <weight>50</weight>
+     <bold>false</bold>
     </font>
    </property>
    <property name="text">
@@ -61,12 +61,15 @@
    </property>
   </widget>
   <widget class="QGroupBox" name="scopeGroupBox">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>40</y>
-     <width>200</width>
-     <height>221</height>
+     <x>20</x>
+     <y>50</y>
+     <width>241</width>
+     <height>201</height>
     </rect>
    </property>
    <property name="title">
@@ -78,43 +81,55 @@
    <property name="checked">
     <bool>false</bool>
    </property>
-   
    <widget class="QLabel" name="Label2">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>118</y>
-      <width>66</width>
+      <x>20</x>
+      <y>110</y>
+      <width>101</width>
       <height>16</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
     <property name="text">
-     <string>Offset</string>
+     <string>Vertical offset</string>
     </property>
    </widget>
    <widget class="QLabel" name="channelLabel">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>62</y>
-      <width>41</width>
+      <x>20</x>
+      <y>30</y>
+      <width>61</width>
       <height>16</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
     </property>
     <property name="text">
      <string>Channel</string>
     </property>
    </widget>
-   
-  
    <widget class="QComboBox" name="channelComboBox">
     <property name="geometry">
      <rect>
-      <x>70</x>
-      <y>59</y>
+      <x>100</x>
+      <y>30</y>
       <width>60</width>
       <height>22</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>10</pointsize>
+     </font>
     </property>
     <item>
      <property name="text">
@@ -157,25 +172,13 @@
      </property>
     </item>
    </widget>
-   
-   
-   
-   
-   
-   
-  
-   
-
-
-   
-   
    <widget class="QProgressBar" name="sweepsProgressBar">
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>165</y>
-      <width>150</width>
-      <height>20</height>
+      <y>150</y>
+      <width>221</width>
+      <height>31</height>
      </rect>
     </property>
     <property name="value">
@@ -185,21 +188,19 @@
      <bool>false</bool>
     </property>
    </widget>
-
-   
-  
-  
-   
-   
-   
    <widget class="QSpinBox" name="dataPointsNbrSpinBox">
     <property name="geometry">
      <rect>
-      <x>70</x>
-      <y>87</y>
+      <x>100</x>
+      <y>70</y>
       <width>61</width>
       <height>20</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>10</pointsize>
+     </font>
     </property>
     <property name="keyboardTracking">
      <bool>false</bool>
@@ -217,36 +218,46 @@
      <number>40000</number>
     </property>
    </widget>
-
-
-
    <widget class="QLCDNumber" name="OffsetLCD">
-     <property name="geometry">
-      <rect>
-       <x>70</x>
-       <y>118</y>
-       <width>90</width>
-       <height>30</height>
-      </rect>
-     </property>
-     <property name="digitCount">
-      <number>10</number>
-     </property>
-     
-    </widget>
-
-
+    <property name="geometry">
+     <rect>
+      <x>130</x>
+      <y>100</y>
+      <width>81</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+      <weight>50</weight>
+      <bold>false</bold>
+     </font>
+    </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
+    </property>
+    <property name="digitCount">
+     <number>10</number>
+    </property>
+   </widget>
    <widget class="QLabel" name="dataPointsNbrLabel">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>90</y>
-      <width>51</width>
-      <height>16</height>
+      <x>20</x>
+      <y>60</y>
+      <width>71</width>
+      <height>31</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <pointsize>10</pointsize>
+     </font>
+    </property>
     <property name="text">
-     <string>Nbr Points</string>
+     <string>Nbr of 
+data points</string>
     </property>
    </widget>
   </widget>
