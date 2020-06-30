@@ -94,15 +94,16 @@ class ScanningLoop(QtCore.QObject):
             #print("EmitData reconnection requested")
             # trigger scope
             self.setScopeMode.emit(0)
-            self.thread().msleep(300)         
+            #self.thread().msleep(300)         
             # read scope
             #print("data = ",self.data)
             while self.data == []:
                 QApplication.processEvents() 
                 #print("in loop ... ")
-                self.thread().msleep(100)
+                #self.thread().msleep(10)
+                
                 #time.sleep(0.1)
-                #print('Waiting for data')
+                #⌂print('Waiting for data')
                 if not self.run:
                     print("BREAK LOOP data")
                     break
@@ -132,7 +133,7 @@ class ScanningLoop(QtCore.QObject):
                 pathFile = os.path.join(self.folder, fileName)
                 file = open(pathFile,"w")
                 for ii in range(len(self.data[0])):
-                    file.write('%.9f\t%f\n' % (self.data[0][ii], self.data[1][ii]))
+                    file.write('%.9f\t%.9f\n' % (self.data[0][ii], self.data[1][ii]))
                 file.close()
             self.StoreData([])
             '''
@@ -149,9 +150,9 @@ class ScanningLoop(QtCore.QObject):
     def StoreData(self, data):
         #print("len data stored = ", len(data))
         self.data = data
-        if data != []:
+        #if data != []:
             # stop the scope while the main loop write the data in a file
-            self.setScopeMode.emit(3)
+            #self.setScopeMode.emit(3)
 
         
     def Stop(self):

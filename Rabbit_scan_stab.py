@@ -76,14 +76,14 @@ class ScanningStabLoop(QtCore.QObject):
         
         print("begin Scan Stab Run")
  
-        self.thread().msleep(1000)
+        self.thread().msleep(100)
         feedbackTime = 0
-        currentFolder = self.StabScanFolder+"/Step_"+str(self.stabScanStepNbr)        
-        os.mkdir(currentFolder)  
+        #currentFolder = self.StabScanFolder+"/Step_"+str(self.stabScanStepNbr)        
+        #os.mkdir(currentFolder)  
 
         ################ creates a file with the parameters of the scan ###################
         
-        self.writeParam()
+        #self.writeParam()
         
         
         
@@ -97,7 +97,7 @@ class ScanningStabLoop(QtCore.QObject):
             # freeze this loop while the stage is not at destination :
             #print('')
 
-            self.tab3.storedatafolder = currentFolder 
+            #self.tab3.storedatafolder = currentFolder 
             
             self.mutex.lock()
    
@@ -117,21 +117,22 @@ class ScanningStabLoop(QtCore.QObject):
             #self.mutex.lock
             
             
-            #print("feedback time read in SS loop = ", feedbackTime)
+            print("feedback time read in SS loop = ", feedbackTime)
             
             if (feedbackTime%self.stepDuration == 0) and (feedbackTime != 0):  #request step when the number of acq. per step is reached
+                print("make a step")
                 self.stabPos += self.step
                 self.tab3.requestSSMotion.emit(self.stabPos)                
                
                 #print("recquire new stab scan locking pos")
 
                 
-                self.stabScanStepNbr += 1
-                currentFolder = self.StabScanFolder+"/Step_"+str(self.stabScanStepNbr)
-                os.mkdir(currentFolder)
+                #self.stabScanStepNbr += 1
+                #currentFolder = self.StabScanFolder+"/Step_"+str(self.stabScanStepNbr)
+                #os.mkdir(currentFolder)
 
-
-                self.thread().msleep(100)
+                #self.tab3.scopeWidget.ClearBuffer()
+                self.thread().msleep(10)
             self.thread().msleep(100)                
             '''
             while not self.nextStepAllowed:
@@ -174,7 +175,8 @@ class ScanningStabLoop(QtCore.QObject):
             print("file already exists")
             self.StabScanFolder+="bis"
       
-        
+        self.tab3.storedatafolder_display.setText(self.StabScanFolder)
+        self.tab3.storedatafolder = self.StabScanFolder
         os.mkdir(self.StabScanFolder)
 
     
@@ -358,6 +360,10 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
                 self.ScanProgressBar.setValue((self.scanningStabLoop.acqScanTime/self.scanningStabLoop.totalDuration)*100)
                 
     def EndOfStabScan(self):
+        
+        #####19-02-2020
+        self.scanningStabLoop.Stop()
+        #####
         scanStabStatus = self.DisconnectScanStabSignals()
         if scanStabStatus != "Cancel stabilized scan":
             # Make sure that the startScanPushButton of the scanWidget return to the False state
@@ -374,7 +380,7 @@ class ScanStabWidget(QtWidgets.QFrame, Ui_StopScanStabWidget):
                 self.tab3.launch_feedback_test_btn.setText("LAUNCH RABBIT \n FEEDBACK TEST")
                 
             if self.mode == "scan stab":   
-                self.tab3.StabScanBtnClicked.emit(False)
+                self.tab3.stabScanBtnClicked.emit(False)
                 self.startScanPushButton.setText("Start Stabilized Scan")
                 self.tab3.launch_feedback_btn.setChecked(False)
                 self.tab3.launch_feedback_btn.setText("LAUNCH RABBIT \n FEEDBACK")                

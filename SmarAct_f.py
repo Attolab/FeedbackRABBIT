@@ -199,7 +199,7 @@ class SmarActReader(QtCore.QObject):
         self.isRunning = True
         # initialize packet reading parameters
         status = 9
-        timeout = 100
+        timeout = 10
         self.struct = DataPacketStructure(1,1,1,1,1,1)
         # reading loop : the SmarAct controler sends information by packets
         #self.Pos = 0

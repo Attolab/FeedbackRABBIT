@@ -321,7 +321,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>C:\Users\Commande\Documents\DATA_local\200210_test_RASTA\RASta_scan</string>
+     <string>C:\Users\Commande\Documents\DATA_local\200214\RASta_scan</string>
     </property>
    </widget>
    <widget class="QLabel" name="label">

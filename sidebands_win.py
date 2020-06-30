@@ -276,7 +276,7 @@ class SidebandsTab(QtWidgets.QWidget):
             self.shaped_rabbit_mat = rabbit_array
             self.rabbit_t = list_t
             
-            self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat)
+            self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat, cmap='magma')
             self.scanPlotAxis.set_aspect('auto')
             self.scanPlotAxis.set_ylabel("Delay (steps)", fontsize=10)
             self.scanPlotAxis.set_xlabel("ToF", fontsize=10)
@@ -300,7 +300,7 @@ class SidebandsTab(QtWidgets.QWidget):
         if self.nbr_clicks<=6:
            
             if self.nbr_clicks>=4:
-                self.scanPlotAxis.axvline(x=event.xdata,color='black')
+                self.scanPlotAxis.axvline(x=event.xdata,color='white')
                 self.BG_vector.append(event.xdata)
                 self.scanPlotCanvas.draw()
                 self.nbr_clicks += 1
@@ -317,7 +317,7 @@ class SidebandsTab(QtWidgets.QWidget):
             self.SB_vector = []
             self.BG_vector = []
             self.scanPlotAxis.clear()
-            self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat)
+            self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat, cmap='magma')
             self.scanPlotAxis.set_aspect('auto')
             self.scanPlotAxis.set_ylabel("Delay (steps)", fontsize=16)
             self.scanPlotAxis.set_xlabel("ToF", fontsize=16)
@@ -474,14 +474,12 @@ class SidebandsTab(QtWidgets.QWidget):
         self.dphi_display.setText(str(round(self.dphi,8)))
         
         
-        '''
-        #refresh scan with normalization and offset
-        self.scanPlotTrace = self.scanPlotAxis.matshow(self.shaped_rabbit_mat)
+        #self.scanPlotAxis.clear()
+        self.scanPlotTrace = self.scanPlotAxis.matshow(self.rabbit_mat, cmap='magma')
         self.scanPlotAxis.set_aspect('auto')
         self.scanPlotAxis.set_ylabel("Delay (steps)", fontsize=16)
         self.scanPlotAxis.set_xlabel("ToF", fontsize=16)
         self.scanPlotCanvas.draw()
-        '''
         
         
         

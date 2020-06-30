@@ -7,11 +7,13 @@ if main: this python script includes the widget in a window and adds a menu to i
 """
 import sys
 #import ctypes
-
+import time
 import PyQt5.QtCore as QtCore
 from PyQt5 import QtWidgets
 from PyQt5.uic import loadUiType
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication
+
 
 import win32com.client #imports the pywin32 library, this library allow the control of other applications (used here for LeCroy.ActiveDSOCtrl.1)
 
@@ -56,7 +58,7 @@ class ScopeReader(QtCore.QObject):
         self.numSegments = 3000   
         self.acquiredSegments = 0
         self.canAsk = True
-        self.numPoints = 10000
+        self.numPoints = 2500
 
     def writeScope(self, command):
         #print(command)
@@ -128,7 +130,7 @@ class ScopeReader(QtCore.QObject):
        
         
         while self.mode: # An unempty string is considered True in python
-            self.thread().msleep(100)
+            #self.thread().msleep(10)
             if self.mode == "Auto":
                 self.Auto()
             elif self.mode == "Normal":
@@ -137,6 +139,8 @@ class ScopeReader(QtCore.QObject):
                 self.Single()
             elif self.mode == "Stop":
                 self.Stop()
+                
+            QApplication.processEvents()
         # stop scope communication
         self.scope.SetRemoteLocal(0)
         print("exit main loop")
@@ -154,21 +158,32 @@ class ScopeReader(QtCore.QObject):
             #the following loop waits for all the sweeps to be recorded and averaged by the scope, \
             #before making an acquisition (so that we don't sample two acquisitions corresponding to the same set of sweeps)
             loop = True 
+            t0 = time.time()
             while loop:
                 #print("inside segment acquisition loop")
                 
                 self.writeScope("""VBS? 'return=app.Acquisition.Horizontal.AcquiredSegments'""")  
                 #acquiredSegments = self.scope.ReadString(50)
                 #print("acquired segments =" +str(self.acquiredSegments))
-                self.thread().msleep(100)
+                self.thread().msleep(10)
+                
                 if self.acquiredSegments == self.numSegments:
                     #print("all segments acquired")
-                    self.thread().msleep(100)
+                    #elf.thread().msleep(100)
+                    
                     self.ReadWaveform()
                     self.ReadParameters()
                     loop = False
-                    self.thread().msleep(300)
-                self.thread().msleep(100)
+                    self.thread().msleep(30)
+                    self.acquiredSegments = 0
+                    t = time.time()
+                    
+                    self.period = t-t0
+                    t0 = time.time()
+                    #print("period = ",self.period)
+     
+                #self.thread().msleep(10)
+                QApplication.processEvents()
                 
             #self.ReadWaveform()
             #self.ReadParameters()
@@ -206,6 +221,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
     emitData = QtCore.pyqtSignal(tuple) # the scopeWidget is not working with the data and just transmit them with this signal
     alertMessage = QtCore.pyqtSignal(str) # create an alert signal for inproper communication with the scope
 
+    
     def __init__(self, parent=None):
         QtWidgets.QFrame.__init__(self, parent)
         self.setupUi(self)
@@ -216,7 +232,9 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         self.XOffset=0.
         # connect group box to start/stop procedure
         self.scopeGroupBox.toggled.connect(self.ScopeGroupBoxToggled)
+      
         print("Connect Group Box")
+    
         
     def UIUpdate(self, updatedData):
         #print(updatedData)
@@ -394,7 +412,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
         print("requested sweep clear")
         self.writeReader.emit("""VBS 'app.Acquisition.ClearSweeps' """)
         #self.reader.scope.DeviceClear(False)            #clears the scope ouput buffer
-        self.thread().msleep(500)
+        #self.thread().msleep(500)
         
         
     def ClearBuffer(self):
@@ -407,6 +425,7 @@ class ScopeWidget(QtWidgets.QFrame, Ui_ScopeWidget):
     def TransmitData(self, data):
         #if self.sweepsProgressBar.value() >= 1:
         self.emitData.emit(data)
+       
         #print("data transmitted")
         
     def quitScope(self):
